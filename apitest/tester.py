@@ -37,6 +37,8 @@ class TestResult:
     schema_errors: List[str] = field(default_factory=list)
     response_body: Optional[Dict[str, Any]] = None
     response_size_bytes: int = 0
+    auth_attempts: int = 1  # Track how many auth methods were tried
+    auth_succeeded: bool = True  # Whether any auth method succeeded
 
 
 @dataclass
@@ -80,27 +82,32 @@ class TestResults:
 class APITester:
     """Test API endpoints from OpenAPI schema"""
     
-    def __init__(self, schema: Dict[str, Any], auth_handler: AuthHandler, 
+    def __init__(self, schema: Dict[str, Any], auth_handlers: List[AuthHandler], 
                  timeout: int = 30, parallel: bool = False, verbose: bool = False,
                  path_params: Optional[Dict[str, str]] = None):
         self.schema = schema
-        self.auth_handler = auth_handler
+        self.auth_handlers = auth_handlers if isinstance(auth_handlers, list) else [auth_handlers]
+        if not self.auth_handlers:
+            self.auth_handlers = [AuthHandler()]  # Default empty handler
         self.timeout = timeout
         self.parallel = parallel
         self.verbose = verbose
         self.parser = SchemaParser()
+        self.path_params = path_params or {}
+        self.default_path_param_warnings = []
+        self.console = Console()
+        
         self.base_url = self.parser.get_base_url(schema)
-        # Ensure we always have a valid base URL
-        if not self.base_url or not self.base_url.strip():
+        # Ensure we always have a valid base URL (must be full URL starting with http:// or https://)
+        if not self.base_url or not self.base_url.strip() or not self.base_url.startswith(('http://', 'https://')):
+            if self.verbose:
+                self.console.print(f"[yellow]Warning: Base URL was invalid ({self.base_url or 'empty'}), using default: http://localhost:8000[/yellow]")
             self.base_url = 'http://localhost:8000'
             # Update schema to reflect this
             if 'servers' not in schema or not schema.get('servers'):
                 schema['servers'] = [{'url': self.base_url}]
             elif schema.get('servers') and isinstance(schema['servers'][0], dict):
                 schema['servers'][0]['url'] = self.base_url
-        self.path_params = path_params or {}
-        self.default_path_param_warnings = []
-        self.console = Console()
     
     def run_tests(self, progress=None, task=None) -> TestResults:
         """
@@ -189,16 +196,7 @@ class APITester:
         # Get expected status code
         expected_status = self._get_expected_status_code(operation)
         
-        # Build request
-        headers = self.auth_handler.get_headers()
-        params = self.auth_handler.get_query_params()
-        
-        # Add content-type if needed
-        if method in ['POST', 'PUT', 'PATCH']:
-            headers.setdefault('Content-Type', 'application/json')
-        
-        # Build request body if needed
-        data = None
+        # Build request body if needed (same for all auth attempts)
         json_data = None
         if method in ['POST', 'PUT', 'PATCH']:
             # Try to get request body from schema
@@ -207,116 +205,226 @@ class APITester:
                 # Generate minimal test data
                 json_data = self._generate_test_data(request_body)
         
-        # Execute request
-        start_time = time.time()
-        try:
-            response = requests.request(
-                method=method,
-                url=url,
-                headers=headers,
-                params=params,
-                json=json_data,
-                data=data,
-                timeout=self.timeout,
-                allow_redirects=False
-            )
-            response_time_ms = (time.time() - start_time) * 1000
-            response_size = len(response.content)
-            
-            # Parse response based on Content-Type
-            response_body = None
-            content_type = response.headers.get('Content-Type', '').lower()
-            
-            if response.content:
-                try:
-                    if 'application/json' in content_type or 'application/vnd.api+json' in content_type:
-                        response_body = response.json()
-                    elif 'application/xml' in content_type or 'text/xml' in content_type:
-                        # XML response - can't validate with JSON schema, but store as string
-                        response_body = {'_xml_content': response.text}
-                    elif 'text/' in content_type:
-                        # Text response - store as string
-                        response_body = {'_text_content': response.text}
-                    else:
-                        # Try JSON anyway (some APIs don't set Content-Type correctly)
-                        try:
-                            response_body = response.json()
-                        except:
-                            response_body = {'_raw_content': response.text[:500]}  # Truncate long responses
-                except Exception as e:
-                    if self.verbose:
-                        self.console.print(f"[dim]Warning: Could not parse response: {e}[/dim]")
-                    response_body = None
-            
-            # Validate response
-            status = TestStatus.PASS
-            error_message = None
-            schema_mismatch = False
-            schema_errors = []
-            
-            # Check status code
-            if expected_status and response.status_code != expected_status:
-                status = TestStatus.FAIL
-                error_message = f"Expected {expected_status}, got {response.status_code}"
-            
-            # Check response schema (only for JSON responses)
-            if response.status_code < 400 and operation.get('responses'):
-                content_type = response.headers.get('Content-Type', '').lower()
-                if 'application/json' in content_type or 'application/vnd.api+json' in content_type:
-                    schema_errors = self._validate_response_schema(
-                        response_body, response.status_code, operation.get('responses', {})
-                    )
-                    if schema_errors:
-                        schema_mismatch = True
-                        status = TestStatus.WARNING if status == TestStatus.PASS else status
-                elif content_type and 'json' not in content_type:
-                    # Non-JSON response - can't validate schema, but that's OK
-                    if self.verbose:
-                        self.console.print(f"[dim]Skipping schema validation for Content-Type: {content_type}[/dim]")
-            
-            result = TestResult(
-                method=method,
-                path=path,
-                status_code=response.status_code,
-                expected_status=expected_status,
-                response_time_ms=response_time_ms,
-                status=status,
-                error_message=error_message,
-                schema_mismatch=schema_mismatch,
-                schema_errors=schema_errors,
-                response_body=response_body,
-                response_size_bytes=response_size
-            )
-            
-        except requests.exceptions.Timeout:
-            result = TestResult(
+        # Validate URL before making request
+        if not url or not url.startswith(('http://', 'https://')):
+            return TestResult(
                 method=method,
                 path=path,
                 status_code=0,
                 status=TestStatus.ERROR,
-                error_message=f"Request timeout after {self.timeout}s (try increasing with --timeout)"
-            )
-        except requests.exceptions.ConnectionError as e:
-            error_msg = str(e)
-            if "Failed to resolve" in error_msg or "Name or service not known" in error_msg:
-                error_msg = f"Cannot connect to {url}. Check if the server is running and the base URL is correct."
-            result = TestResult(
-                method=method,
-                path=path,
-                status_code=0,
-                status=TestStatus.ERROR,
-                error_message=f"Connection error: {error_msg}"
-            )
-        except Exception as e:
-            result = TestResult(
-                method=method,
-                path=path,
-                status_code=0,
-                status=TestStatus.ERROR,
-                error_message=f"Unexpected error: {str(e)}. Run with --verbose for details."
+                error_message=f"Invalid URL: '{url}'. Base URL appears to be missing. Expected format: http://host:port/path or https://host:port/path"
             )
         
-        return result
+        # Try multiple auth handlers in sequence (like Django authentication_classes)
+        last_result = None
+        auth_attempts = 0
+        
+        for auth_handler in self.auth_handlers:
+            auth_attempts += 1
+            
+            # Build request with current auth handler
+            headers = auth_handler.get_headers()
+            params = auth_handler.get_query_params()
+            
+            # Add content-type if needed
+            if method in ['POST', 'PUT', 'PATCH']:
+                headers.setdefault('Content-Type', 'application/json')
+            
+            # Execute request
+            start_time = time.time()
+            try:
+                response = requests.request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    params=params,
+                    json=json_data,
+                    data=None,
+                    timeout=self.timeout,
+                    allow_redirects=False
+                )
+                response_time_ms = (time.time() - start_time) * 1000
+                response_size = len(response.content)
+                
+                # Parse response based on Content-Type
+                response_body = None
+                content_type = response.headers.get('Content-Type', '').lower()
+                
+                if response.content:
+                    try:
+                        if 'application/json' in content_type or 'application/vnd.api+json' in content_type:
+                            response_body = response.json()
+                        elif 'application/xml' in content_type or 'text/xml' in content_type:
+                            # XML response - can't validate with JSON schema, but store as string
+                            response_body = {'_xml_content': response.text}
+                        elif 'text/' in content_type:
+                            # Text response - store as string
+                            response_body = {'_text_content': response.text}
+                        else:
+                            # Try JSON anyway (some APIs don't set Content-Type correctly)
+                            try:
+                                response_body = response.json()
+                            except:
+                                response_body = {'_raw_content': response.text[:500]}  # Truncate long responses
+                    except Exception as e:
+                        if self.verbose:
+                            self.console.print(f"[dim]Warning: Could not parse response: {e}[/dim]")
+                        response_body = None
+                
+                # Check if this is an auth failure (401/403) - if so, try next auth handler
+                if response.status_code in [401, 403]:
+                    # Auth failed, try next handler if available
+                    if auth_attempts < len(self.auth_handlers):
+                        if self.verbose:
+                            self.console.print(f"[dim]Auth attempt {auth_attempts} failed with {response.status_code} for {method} {path}, trying next auth...[/dim]")
+                        last_result = None
+                        continue  # Try next auth handler
+                    else:
+                        # Last auth handler also failed
+                        last_result = self._create_result_from_response(
+                            method, path, response, response_body, response_time_ms, 
+                            response_size, expected_status, operation, auth_attempts, False
+                        )
+                        break
+                else:
+                    # This auth worked (not 401/403), use this result
+                    last_result = self._create_result_from_response(
+                        method, path, response, response_body, response_time_ms,
+                        response_size, expected_status, operation, auth_attempts, True
+                    )
+                    break  # Success, no need to try more auth handlers
+                    
+            except requests.exceptions.Timeout:
+                # Timeout - don't retry with other auths, return error
+                return TestResult(
+                    method=method,
+                    path=path,
+                    status_code=0,
+                    status=TestStatus.ERROR,
+                    error_message=f"Request timeout after {self.timeout}s (try increasing with --timeout)",
+                    auth_attempts=auth_attempts,
+                    auth_succeeded=False
+                )
+            except requests.exceptions.InvalidURL as e:
+                error_msg = str(e)
+                # Provide more helpful error message
+                if "No scheme supplied" in error_msg or "Invalid URL" in error_msg:
+                    error_msg = f"Invalid URL format: '{url}'. Base URL is missing or invalid. Please check the schema's 'servers' field or use --base-url option."
+                return TestResult(
+                    method=method,
+                    path=path,
+                    status_code=0,
+                    status=TestStatus.ERROR,
+                    error_message=f"URL error: {error_msg}",
+                    auth_attempts=auth_attempts,
+                    auth_succeeded=False
+                )
+            except requests.exceptions.ConnectionError as e:
+                # Connection error - don't retry with other auths, return error
+                error_msg = str(e)
+                if "Failed to resolve" in error_msg or "Name or service not known" in error_msg:
+                    error_msg = f"Cannot connect to {url}. Check if the server is running and the base URL is correct."
+                elif "Connection refused" in error_msg:
+                    error_msg = f"Connection refused for {url}. Is the server running on this address?"
+                return TestResult(
+                    method=method,
+                    path=path,
+                    status_code=0,
+                    status=TestStatus.ERROR,
+                    error_message=f"Connection error: {error_msg}",
+                    auth_attempts=auth_attempts,
+                    auth_succeeded=False
+                )
+            except requests.exceptions.RequestException as e:
+                # Request error - don't retry with other auths, return error
+                return TestResult(
+                    method=method,
+                    path=path,
+                    status_code=0,
+                    status=TestStatus.ERROR,
+                    error_message=f"Request error: {str(e)}",
+                    auth_attempts=auth_attempts,
+                    auth_succeeded=False
+                )
+            except Exception as e:
+                # Catch all other errors - don't retry with other auths
+                error_msg = str(e)
+                if self.verbose:
+                    import traceback
+                    self.console.print(f"[red]Error details for {method} {path}:[/red]")
+                    self.console.print(f"[dim]{traceback.format_exc()}[/dim]")
+                return TestResult(
+                    method=method,
+                    path=path,
+                    status_code=0,
+                    status=TestStatus.ERROR,
+                    error_message=f"Unexpected error: {error_msg}",
+                    auth_attempts=auth_attempts,
+                    auth_succeeded=False
+                )
+        
+        # Return last result (or None if all auths failed - shouldn't happen, but handle it)
+        if last_result is None:
+            # All auth handlers were tried and all returned 401/403
+            return TestResult(
+                method=method,
+                path=path,
+                status_code=401,
+                expected_status=expected_status,
+                status=TestStatus.FAIL,
+                error_message=f"All {auth_attempts} authentication method(s) failed with 401/403",
+                auth_attempts=auth_attempts,
+                auth_succeeded=False
+            )
+        
+        return last_result
+    
+    def _create_result_from_response(self, method: str, path: str, response: requests.Response,
+                                     response_body: Optional[Dict[str, Any]], response_time_ms: float,
+                                     response_size: int, expected_status: Optional[int],
+                                     operation: Dict[str, Any], auth_attempts: int, auth_succeeded: bool) -> TestResult:
+        """Helper method to create TestResult from a response"""
+        # Validate response
+        status = TestStatus.PASS
+        error_message = None
+        schema_mismatch = False
+        schema_errors = []
+        
+        # Check status code
+        if expected_status and response.status_code != expected_status:
+            status = TestStatus.FAIL
+            error_message = f"Expected {expected_status}, got {response.status_code}"
+        
+        # Check response schema (only for JSON responses)
+        if response.status_code < 400 and operation.get('responses'):
+            content_type = response.headers.get('Content-Type', '').lower()
+            if 'application/json' in content_type or 'application/vnd.api+json' in content_type:
+                schema_errors = self._validate_response_schema(
+                    response_body, response.status_code, operation.get('responses', {})
+                )
+                if schema_errors:
+                    schema_mismatch = True
+                    status = TestStatus.WARNING if status == TestStatus.PASS else status
+            elif content_type and 'json' not in content_type:
+                # Non-JSON response - can't validate schema, but that's OK
+                if self.verbose:
+                    self.console.print(f"[dim]Skipping schema validation for Content-Type: {content_type}[/dim]")
+        
+        return TestResult(
+            method=method,
+            path=path,
+            status_code=response.status_code,
+            expected_status=expected_status,
+            response_time_ms=response_time_ms,
+            status=status,
+            error_message=error_message,
+            schema_mismatch=schema_mismatch,
+            schema_errors=schema_errors,
+            response_body=response_body,
+            response_size_bytes=response_size,
+            auth_attempts=auth_attempts,
+            auth_succeeded=auth_succeeded
+        )
     
     def _build_url(self, path: str, operation: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -326,6 +434,17 @@ class APITester:
             path: API path with potential parameters
             operation: OpenAPI operation object (for parameter schema)
         """
+        # Ensure base URL is set and valid (safety check - must be full URL starting with http:// or https://)
+        if not self.base_url or not self.base_url.strip() or not self.base_url.startswith(('http://', 'https://')):
+            if self.verbose:
+                self.console.print(f"[yellow]Warning: Base URL was invalid ({self.base_url or 'empty'}), using default: http://localhost:8000[/yellow]")
+            self.base_url = 'http://localhost:8000'
+            # Update schema to reflect this
+            if 'servers' not in self.schema or not self.schema.get('servers'):
+                self.schema['servers'] = [{'url': self.base_url}]
+            elif self.schema.get('servers') and isinstance(self.schema['servers'][0], dict):
+                self.schema['servers'][0]['url'] = self.base_url
+        
         base = self.base_url.rstrip('/')
         path = path.lstrip('/')
         

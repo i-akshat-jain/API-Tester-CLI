@@ -1,0 +1,68 @@
+# Example API Tester Configuration File
+# Copy this file to ~/.apitest/config.yaml for user-wide profiles
+# Or to .apitest.yaml in your project directory for project-specific profiles
+#
+# Project-specific configs (.apitest.yaml) take precedence over user configs
+#
+# ⚠️ IMPORTANT: Never hardcode tokens/secrets in this file!
+# Always use environment variables (e.g., $TOKEN, $API_KEY) like Postman does.
+# This keeps your tokens secure and allows easy rotation of short-lived tokens.
+#
+# Set environment variables before running:
+#   export PROD_TOKEN="your-token-here"
+#   export STAGING_TOKEN="your-token-here"
+#
+# Or use a .env file with your shell's env loading mechanism
+
+profiles:
+  production:
+    description: Production API
+    base_url: https://api.example.com
+    # Single auth method
+    auth: bearer=$PROD_TOKEN
+    timeout: 30
+    path_params:
+      user_id: "123"
+      account_id: "456"
+
+  production-multi-auth:
+    description: Production API with multiple auth methods (like Django authentication_classes)
+    base_url: https://api.example.com
+    # Multiple auth methods - tries each in sequence if previous fails with 401/403
+    # All tokens come from environment variables (never hardcode them!)
+    auth:
+      - bearer=$ADMIN_TOKEN  # Try admin token first (set: export ADMIN_TOKEN="token-value")
+      - bearer=$USER_TOKEN   # Fallback to user token (set: export USER_TOKEN="token-value")
+      - bearer=$GUEST_TOKEN  # Fallback to guest token (set: export GUEST_TOKEN="token-value")
+    timeout: 30
+
+  staging:
+    description: Staging API
+    base_url: https://staging.api.example.com
+    auth: bearer=$STAGING_TOKEN
+    timeout: 30
+
+  local:
+    description: Local development
+    base_url: http://localhost:8000
+    auth: bearer=$LOCAL_TOKEN
+
+  # Example: Multiple apps/services
+  app1:
+    description: First API Service
+    base_url: https://api1.example.com
+    auth: apikey=X-API-Key:$APP1_KEY
+
+  app2:
+    description: Second API Service
+    base_url: https://api2.example.com
+    auth: bearer=$APP2_TOKEN
+    path_params:
+      tenant_id: "my-tenant"
+
+  # Example: API with API key in query parameter
+  external-api:
+    description: External API with query auth
+    base_url: https://external-api.com
+    auth: apikey=api_key:$EXTERNAL_KEY:query
+

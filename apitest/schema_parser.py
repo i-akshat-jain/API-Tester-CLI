@@ -60,22 +60,34 @@ class SchemaParser:
             schema: Parsed schema dictionary
             
         Returns:
-            Base URL string
+            Base URL string (empty if not found or invalid)
         """
         # OpenAPI 3.0
         if 'servers' in schema and schema['servers']:
             server = schema['servers'][0]
             if isinstance(server, dict):
-                return server.get('url', '')
+                url = server.get('url', '')
+                url = url.strip() if url else ''
+                # Only return if it's a valid full URL (starts with http:// or https://)
+                # Paths like '/' or '/api' are not valid base URLs
+                if url and url.startswith(('http://', 'https://')):
+                    return url
+                # Otherwise treat as invalid (empty string)
+                return ''
             elif isinstance(server, str):
-                return server
+                url = server.strip() if server else ''
+                # Only return if it's a valid full URL
+                if url and url.startswith(('http://', 'https://')):
+                    return url
+                return ''
         
         # OpenAPI 2.0 / Swagger
         if 'host' in schema:
             protocol = schema.get('schemes', ['https'])[0]
             host = schema['host']
-            base_path = schema.get('basePath', '')
-            return f"{protocol}://{host}{base_path}"
+            if host and host.strip():
+                base_path = schema.get('basePath', '')
+                return f"{protocol}://{host}{base_path}"
         
         return ''
     
