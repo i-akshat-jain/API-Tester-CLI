@@ -1,0 +1,54 @@
+openapi: 3.0.0
+info:
+  title: API with Authentication Example
+  version: 1.0.0
+  description: Example API with authentication requirements
+servers:
+  - url: https://api.example.com/v1
+paths:
+  /users:
+    get:
+      summary: Get all users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: Unauthorized
+  /users/me:
+    get:
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+  /public/status:
+    get:
+      summary: Public status endpoint
+      responses:
+        '200':
+          description: API status
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
