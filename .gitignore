@@ -136,4 +136,12 @@ target/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+
+# Gumroad distribution files
+GUMROAD_CUSTOMER_PACKAGE/
+api-tester-cli-v*.zip
+*gumroad*.zip
+api-tester-cli-*.zip
 docs/
+
+package_for_gumroad.sh
