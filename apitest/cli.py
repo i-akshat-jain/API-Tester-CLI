@@ -46,12 +46,15 @@ from rich.table import Table
 @click.option('--validate-schema', is_flag=True, help='Validate schema file only (do not run tests)')
 @click.option('--validate-auth', is_flag=True, help='Validate auth format only (do not run tests)')
 @click.option('--summary-only', is_flag=True, help='Show only summary statistics (useful for CI/CD)')
+@click.option('--store-results', is_flag=True, help='Store test results locally (saves to ~/.apitest/data.db)')
+@click.option('--use-cached-token', is_flag=True, help='Use cached token from system keyring if available')
 @click.version_option(version=__version__)
 def main(schema_file: str, base_url: Optional[str], auth: Optional[str], 
          path_params: Optional[str], profile: Optional[str], config: Optional[str],
          format: str, output: Optional[str], 
          parallel: bool, verbose: bool, timeout: int, list_profiles: bool, init_config: bool,
-         demo: bool, dry_run: bool, validate_schema: bool, validate_auth: bool, summary_only: bool):
+         demo: bool, dry_run: bool, validate_schema: bool, validate_auth: bool, summary_only: bool,
+         store_results: bool, use_cached_token: bool):
     """
     API Tester CLI - Automate OpenAPI/Swagger API Testing
     
@@ -421,9 +424,31 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
         if not final_base_url or not final_base_url.strip() or not final_base_url.startswith(('http://', 'https://')):
             # Force set default if somehow still invalid
             schema['servers'] = [{'url': default_base_url}]
+            final_base_url = default_base_url
             if verbose:
                 console = Console()
-                console.print(f"[yellow]Warning: Base URL was invalid ({final_base_url or 'empty'}), forcing default: {default_base_url}[/yellow]")
+                console.print(f"[yellow]Warning: Base URL was invalid, forcing default: {default_base_url}[/yellow]")
+        
+        # Try to use cached token if enabled (after base URL is determined)
+        if use_cached_token and schema_file and final_base_url and not auth:
+            try:
+                from apitest.storage import TokenStore
+                token_store = TokenStore()
+                identifier = TokenStore.create_identifier(
+                    schema_file, final_base_url, "bearer"
+                )
+                cached_token = token_store.get_token(identifier)
+                if cached_token and not token_store.is_token_expired(identifier):
+                    # Use cached token
+                    if verbose:
+                        console = Console()
+                        console.print(f"[dim]Using cached token from keyring[/dim]")
+                    auth = f"bearer={cached_token}"
+                    final_auth = auth  # Update final_auth since we set auth
+            except Exception as e:
+                if verbose:
+                    console = Console()
+                    console.print(f"[yellow]Could not retrieve cached token: {e}[/yellow]")
         
         # Determine timeout (CLI override > Profile > Default)
         # Note: timeout defaults to 30, so check if profile has a different value
@@ -439,8 +464,31 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
             timeout=final_timeout,
             parallel=parallel,
             verbose=verbose,
-            path_params=path_params_dict
+            path_params=path_params_dict,
+            store_results=store_results,
+            schema_file=schema_file
         )
+        
+        # Cache token if enabled and auth was provided
+        if use_cached_token and schema_file and final_base_url and final_auth:
+            try:
+                from apitest.storage import TokenStore
+                token_store = TokenStore()
+                # Extract token from auth string
+                if isinstance(final_auth, str) and 'bearer=' in final_auth:
+                    token = final_auth.split('bearer=', 1)[1].split()[0]  # Get token part
+                    identifier = TokenStore.create_identifier(
+                        schema_file, final_base_url, "bearer"
+                    )
+                    # Store token (will be retrieved next time if not expired)
+                    token_store.store_token(identifier, token)
+                    if verbose:
+                        console = Console()
+                        console.print(f"[dim]Token cached in keyring for future use[/dim]")
+            except Exception as e:
+                if verbose:
+                    console = Console()
+                    console.print(f"[yellow]Could not cache token: {e}[/yellow]")
         
         # Count endpoints for progress and dry-run
         parser = SchemaParser()

@@ -9,10 +9,13 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
 
 from apitest.schema_parser import SchemaParser
 from apitest.auth import AuthHandler
 from rich.console import Console
+
+logger = logging.getLogger(__name__)
 
 
 class TestStatus(Enum):
@@ -84,7 +87,8 @@ class APITester:
     
     def __init__(self, schema: Dict[str, Any], auth_handlers: List[AuthHandler], 
                  timeout: int = 30, parallel: bool = False, verbose: bool = False,
-                 path_params: Optional[Dict[str, str]] = None):
+                 path_params: Optional[Dict[str, str]] = None,
+                 store_results: bool = False, schema_file: Optional[str] = None):
         self.schema = schema
         self.auth_handlers = auth_handlers if isinstance(auth_handlers, list) else [auth_handlers]
         if not self.auth_handlers:
@@ -96,6 +100,8 @@ class APITester:
         self.path_params = path_params or {}
         self.default_path_param_warnings = []
         self.console = Console()
+        self.store_results = store_results
+        self.schema_file = schema_file
         
         self.base_url = self.parser.get_base_url(schema)
         # Ensure we always have a valid base URL (must be full URL starting with http:// or https://)
@@ -149,6 +155,20 @@ class APITester:
                     progress.update(task, advance=1)
         
         test_results.total_time_seconds = time.time() - start_time
+        
+        # Store results if enabled
+        if self.store_results and self.schema_file:
+            try:
+                from apitest.storage import TestHistory
+                with TestHistory() as history:
+                    history.save_test_results(self.schema_file, test_results, store_payloads=True)
+                    if self.verbose:
+                        self.console.print(f"[dim]✓ Test results saved to local database[/dim]")
+            except Exception as e:
+                logger.warning(f"Failed to store test results: {e}")
+                if self.verbose:
+                    self.console.print(f"[yellow]Warning: Could not save test results: {e}[/yellow]")
+        
         return test_results
     
     def _run_tests_parallel(self, test_cases: List[tuple]) -> TestResults:

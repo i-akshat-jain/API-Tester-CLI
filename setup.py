@@ -5,9 +5,12 @@ Setup configuration for API Tester CLI
 from setuptools import setup, find_packages
 from pathlib import Path
 
-# Read README
-readme_file = Path(__file__).parent / "README.md"
-long_description = readme_file.read_text(encoding='utf-8') if readme_file.exists() else ""
+# Read PyPI description (concise version)
+pypi_readme_file = Path(__file__).parent / "README_PYPI.md"
+if not pypi_readme_file.exists():
+    # Fallback to full README if PyPI version doesn't exist
+    pypi_readme_file = Path(__file__).parent / "README.md"
+long_description = pypi_readme_file.read_text(encoding='utf-8') if pypi_readme_file.exists() else ""
 
 setup(
     name="apitest-cli",
@@ -15,7 +18,7 @@ setup(
     description="Automate OpenAPI/Swagger API testing from the command line - Test your entire API in seconds",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="API Tester CLI",
+    author="Akshat Jain",
     author_email="akshatjain1502@gmail.com",
     url="https://github.com/i-akshat-jain/API-Tester-CLI",
     packages=find_packages(),
@@ -25,6 +28,7 @@ setup(
         "pyyaml>=6.0",
         "jsonschema>=4.0.0",
         "rich>=13.0.0",
+        "keyring>=24.0.0",
     ],
     python_requires=">=3.8",
     entry_points={
@@ -32,6 +36,7 @@ setup(
             "apitest=apitest.cli:main",
         ],
     },
+    license="MIT",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -41,7 +46,6 @@ setup(
         "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
         "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
         "Topic :: Utilities",
-        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",

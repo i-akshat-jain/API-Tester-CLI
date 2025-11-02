@@ -2,6 +2,8 @@
 
 > Automate OpenAPI/Swagger API testing from the command line. Test your entire API in seconds.
 
+> **Note**: This is the full documentation version. A concise version is available on [PyPI](https://pypi.org/project/apitest-cli/).
+
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -635,6 +637,8 @@ MIT License - see LICENSE file for details
 - **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for version history
 - **Examples**: Check the `examples/` directory for sample OpenAPI schemas
 - **Full Documentation**: All documentation is in this README - your single source of truth!
+- **Issues**: Found a bug or have a feature request? [Open an issue](https://github.com/i-akshat-jain/API-Tester-CLI/issues)
+- **Contributing**: Contributions welcome! Please feel free to submit a Pull Request.
 
 ## 🚀 Roadmap
 

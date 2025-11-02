@@ -145,3 +145,6 @@ api-tester-cli-*.zip
 docs/
 
 package_for_gumroad.sh
+
+.env
+venv/
