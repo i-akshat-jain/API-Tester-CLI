@@ -10,7 +10,7 @@ from typing import Optional
 
 from apitest.schema_parser import SchemaParser
 from apitest.validator import SchemaValidator
-from apitest.tester import APITester
+from apitest.tester import APITester, TestStatus
 from apitest.reporter import Reporter
 from apitest.auth import AuthHandler
 from apitest.config import ConfigManager
@@ -48,13 +48,15 @@ from rich.table import Table
 @click.option('--summary-only', is_flag=True, help='Show only summary statistics (useful for CI/CD)')
 @click.option('--store-results', is_flag=True, help='Store test results locally (saves to ~/.apitest/data.db)')
 @click.option('--use-cached-token', is_flag=True, help='Use cached token from system keyring if available')
+@click.option('--use-smart-data', is_flag=True, help='Use learned patterns for intelligent test data generation')
+@click.option('--compare-baseline', is_flag=True, help='Compare test results to baseline and detect regressions')
 @click.version_option(version=__version__)
 def main(schema_file: str, base_url: Optional[str], auth: Optional[str], 
          path_params: Optional[str], profile: Optional[str], config: Optional[str],
          format: str, output: Optional[str], 
          parallel: bool, verbose: bool, timeout: int, list_profiles: bool, init_config: bool,
          demo: bool, dry_run: bool, validate_schema: bool, validate_auth: bool, summary_only: bool,
-         store_results: bool, use_cached_token: bool):
+         store_results: bool, use_cached_token: bool, use_smart_data: bool, compare_baseline: bool):
     """
     API Tester CLI - Automate OpenAPI/Swagger API Testing
     
@@ -457,6 +459,19 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
         else:
             final_timeout = timeout
         
+        # Warn if smart data is requested but no history available
+        if use_smart_data and schema_file:
+            try:
+                from apitest.storage.database import Database
+                db = Database()
+                history = db.get_test_history(schema_file=schema_file, limit=1)
+                if not history:
+                    if verbose:
+                        console.print("[yellow]⚠ No test history found. Smart data generation will fall back to schema-based generation.[/yellow]")
+                        console.print("[dim]Run tests with --store-results first to build up history for smart generation.[/dim]")
+            except Exception:
+                pass  # Silently continue if database check fails
+        
         # Initialize tester with auth handlers (supports multiple for retry logic)
         tester = APITester(
             schema=schema,
@@ -466,7 +481,9 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
             verbose=verbose,
             path_params=path_params_dict,
             store_results=store_results,
-            schema_file=schema_file
+            schema_file=schema_file,
+            use_smart_data=use_smart_data,
+            compare_baseline=compare_baseline
         )
         
         # Cache token if enabled and auth was provided
@@ -576,6 +593,39 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
                 results = tester.run_tests(progress=progress, task=task)
         else:
             results = tester.run_tests()
+        
+        # Detect regressions if baseline comparison is enabled
+        all_regressions = []
+        if compare_baseline and schema_file:
+            try:
+                from apitest.learning.baseline import BaselineManager
+                baseline_manager = BaselineManager()
+                
+                for result in results.results:
+                    if result.status == TestStatus.PASS and result.status_code:
+                        # Detect regressions for this endpoint
+                        regressions = baseline_manager.detect_regressions(
+                            schema_file=schema_file,
+                            method=result.method,
+                            path=result.path,
+                            status_code=result.status_code,
+                            response_time_ms=result.response_time_ms,
+                            response_body=result.response_body
+                        )
+                        if regressions:
+                            all_regressions.extend(regressions)
+            except Exception as e:
+                if verbose:
+                    console.print(f"[yellow]Could not detect regressions: {e}[/yellow]")
+        
+        # Display regressions if any found
+        if all_regressions:
+            console.print()
+            console.print("[bold yellow]⚠ Regression Detection Results:[/bold yellow]")
+            for regression in all_regressions:
+                severity_color = "red" if regression.severity == "error" else "yellow"
+                console.print(f"[{severity_color}]  • {regression.endpoint}: {regression.message}[/{severity_color}]")
+            console.print()
         
         # Generate report
         reporter = Reporter()

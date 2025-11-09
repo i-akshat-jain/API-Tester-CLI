@@ -2,353 +2,292 @@
 
 > Automate OpenAPI/Swagger API testing from the command line. Test your entire API in seconds.
 
-> **Note**: This is the full documentation version. A concise version is available on [PyPI](https://pypi.org/project/apitest-cli/).
-
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## 🎯 What This Does
 
-**API Tester CLI** reads your OpenAPI/Swagger schema file and automatically:
-
-- ✅ Validates the schema is correctly formatted
-- ✅ Tests each endpoint is reachable
-- ✅ Validates response structure matches schema
-- ✅ Checks status codes match documentation
+Automatically tests your OpenAPI/Swagger API:
+- ✅ Validates schema format
+- ✅ Tests all endpoints
+- ✅ Validates responses match schema
+- ✅ Checks status codes
 - ✅ Tests authentication flows
-- ✅ Generates detailed test reports (HTML, JSON, CSV)
+- ✅ Generates reports (HTML, JSON, CSV)
+- ✅ Local test history & baseline tracking
+- ✅ Secure token caching
 
-Stop manually clicking through Postman collections. One command tests everything.
-
-## 🚀 First 30 Seconds
-
-Get your first API test running in under 30 seconds:
+## 🚀 Quick Start
 
 ```bash
-# 1. Install
+# Install
 pip install apitest-cli
 
-# 2. Test a public API (no setup needed!)
+# Try demo (no setup needed)
 apitest --demo
 
-# 3. Test your own API
-apitest your-api.yaml
-```
+# Test your API
+apitest schema.yaml
 
-That's it! The `--demo` flag runs a test against the public Petstore API so you can see it in action immediately.
+# With authentication
+apitest schema.yaml --auth bearer=$TOKEN
+
+# Store results & cache token
+apitest schema.yaml --store-results --use-cached-token --auth bearer=$TOKEN
+```
 
 ---
 
-## 📚 Quick Start Guide
+## 📚 Installation
 
-### Installation
-
-**Quick Install:**
 ```bash
 pip install apitest-cli
 ```
 
-**Development Install (from source):**
-```bash
-# Clone the repository
-git clone https://github.com/i-akshat-jain/API-Tester-CLI
-cd apitest-cli
+**Verify:** `apitest --version`
 
-# Install in development mode
-pip install -e .
+## 💻 Usage
 
-# Or install dependencies only
-pip install -r requirements.txt
-```
-
-**Verify Installation:**
-```bash
-apitest --version
-# Should output: apitest-cli, version 1.0.0
-```
-
-### Basic Usage
+### Basic Testing
 
 ```bash
-# Test an API from its OpenAPI schema
+# Test schema
 apitest schema.yaml
-```
 
-That's it! You'll see a beautiful console output with test results.
+# Preview tests (no requests)
+apitest schema.yaml --dry-run
 
-**Get Started in 3 Steps:**
-
-1. **Try the Demo** (no setup needed):
-   ```bash
-   apitest --demo
-   ```
-   This tests the public Petstore API so you can see how it works!
-
-2. **Get an OpenAPI Schema** - If you don't have one:
-   - Look for "Download OpenAPI spec" in your API docs
-   - Use the examples in `examples/` directory
-   - Generate one from your API framework
-
-3. **Run Your First Test:**
-   ```bash
-   # Basic test
-   apitest examples/simple-api.yaml
-   
-   # Preview what would be tested (without making requests)
-   apitest examples/simple-api.yaml --dry-run
-   
-   # With HTML report
-   apitest examples/simple-api.yaml --format html --output my-report.html
-   ```
-
-4. **Test Your Own API:**
-   ```bash
-   apitest my-api-schema.yaml --auth bearer=your_token_here
-   ```
-
-### With Authentication
-
-```bash
-# Bearer token
-apitest schema.yaml --auth bearer=your_token_here
-
-# API key (header)
-apitest schema.yaml --auth apikey=X-API-Key:your_key_here
-
-# API key (query parameter)
-apitest schema.yaml --auth apikey=api_key:your_key_here:query
-
-# Custom header
-apitest schema.yaml --auth header=Authorization:Custom token123
-
-# Using environment variables (prevents tokens in command history)
-# Set token first: export API_TOKEN="your-token-here"
-apitest schema.yaml --auth bearer=$API_TOKEN
-apitest schema.yaml --auth bearer=${API_TOKEN}
-
-# Or inline (but environment variables are preferred for security)
-apitest schema.yaml --auth bearer=your-token-here
-```
-
-**⚠️ Security Note:** For short-lived tokens and production use, always use environment variables (like Postman) instead of hardcoding tokens. Set them before running:
-```bash
-export API_TOKEN="your-token-here"
-export PROD_TOKEN="your-production-token"
-```
-
-**Auto-Detection from Schema:** If your OpenAPI schema defines security requirements, the tool will automatically try to use tokens from environment variables (`API_TOKEN`, `API_KEY`, or `{SCHEME_NAME}_TOKEN`).
-
-### Using Profiles (Multiple Apps/Environments)
-
-For real-world projects with multiple apps, environments, or authentication setups, use **profiles** to keep your configurations clean and organized.
-
-**Quick Start with Profiles:**
-
-```bash
-# 1. Set up environment variables (like Postman)
-export PROD_TOKEN="your-production-token"
-export STAGING_TOKEN="your-staging-token"
-
-# 2. Create a config file with example profiles
-apitest --init-config
-
-# 3. Edit ~/.apitest/config.yaml with your profiles (use $ENV_VAR syntax)
-# 4. List available profiles
-apitest --list-profiles
-
-# 5. Use a profile (tokens loaded from environment)
-apitest schema.yaml --profile production
-```
-
-**💡 Tip:** Use a `.env` file (see `.env.example`) and load it with `source .env` or tools like `direnv` for easier token management.
-
-**Config File Locations:**
-
-The tool looks for config files in this order (first found wins):
-1. `.apitest.yaml` in your current project directory (project-specific)
-2. `~/.apitest/config.yaml` (user-specific, global)
-
-**Example Config File** (`~/.apitest/config.yaml` or `.apitest.yaml`):
-
-```yaml
-profiles:
-  production:
-    description: Production API
-    base_url: https://api.example.com
-    # ⚠️ Always use environment variables for tokens (never hardcode!)
-    # Set tokens before running: export PROD_TOKEN="your-token-here"
-    auth: bearer=$PROD_TOKEN
-    timeout: 30
-    path_params:
-      user_id: "123"
-      account_id: "456"
-
-  staging:
-    description: Staging API
-    base_url: https://staging.api.example.com
-    auth: bearer=$STAGING_TOKEN
-    timeout: 30
-
-  local:
-    description: Local development
-    base_url: http://localhost:8000
-    auth: bearer=$LOCAL_TOKEN
-
-  app1:
-    description: First API Service
-    base_url: https://api1.example.com
-    auth: apikey=X-API-Key:$APP1_KEY
-
-  app2:
-    description: Second API Service
-    base_url: https://api2.example.com
-    auth: bearer=$APP2_TOKEN
-    path_params:
-      tenant_id: "my-tenant"
-
-  multi-auth:
-    description: API with multiple auth methods (tries each in sequence)
-    base_url: https://api.example.com
-    # If first auth fails with 401/403, automatically tries next one
-    auth:
-      - bearer=$ADMIN_TOKEN   # Try admin token first
-      - bearer=$USER_TOKEN    # Fallback to user token
-      - bearer=$GUEST_TOKEN   # Fallback to guest token
-```
-
-**Setting Up Environment Variables:**
-
-Like Postman, tokens should be stored in environment variables, not hardcoded in config files:
-
-```bash
-# Set tokens as environment variables (recommended)
-export PROD_TOKEN="your-production-token"
-export STAGING_TOKEN="your-staging-token"
-export ADMIN_TOKEN="your-admin-token"
-export USER_TOKEN="your-user-token"
-
-# Or use a .env file (if using a tool like direnv or source)
-# .env file:
-# PROD_TOKEN=your-production-token
-# STAGING_TOKEN=your-staging-token
-
-# Then load it:
-source .env
-```
-
-**Using Profiles:**
-
-```bash
-# Use a profile (tokens come from environment variables)
-apitest schema.yaml --profile production
-
-# Profile with CLI overrides (CLI flags take precedence)
-apitest schema.yaml --profile staging --base-url https://custom-url.com
-
-# Use a project-specific config file
-apitest schema.yaml --profile local --config .apitest.yaml
-
-# List all available profiles
-apitest --list-profiles
-```
-
-**Profile Priority:** CLI flags override profile settings:
-1. CLI flags (highest priority)
-2. Profile settings
-3. Schema auto-detection
-4. Defaults (lowest priority)
-
-This allows you to quickly override any profile setting when needed:
-```bash
-# Use production profile but with a different token
-apitest schema.yaml --profile production --auth bearer=$OVERRIDE_TOKEN
-```
-
-**Multiple Authentication Methods (Like Django authentication_classes):**
-
-You can specify multiple authentication methods in a profile. The tool will try each one in sequence if the previous one fails with 401 (Unauthorized) or 403 (Forbidden):
-
-```yaml
-profiles:
-  multi-auth:
-    description: API with multiple auth methods
-    base_url: https://api.example.com
-    # All tokens from environment variables (set: export ADMIN_TOKEN="...", etc.)
-    auth:
-      - bearer=$ADMIN_TOKEN   # Tried first
-      - bearer=$USER_TOKEN    # Tried if admin fails
-      - bearer=$GUEST_TOKEN   # Tried if user fails
-```
-
-**⚠️ Security Best Practice:** Never hardcode tokens in config files. Always use environment variables (like Postman) to:
-- Keep tokens out of version control
-- Easily rotate short-lived tokens
-- Share configs without exposing secrets
-- Use different tokens per environment
-
-**How it works:**
-- Each endpoint test tries the first auth method
-- If it gets 401/403, automatically tries the next auth method
-- Stops as soon as one succeeds (returns any status other than 401/403)
-- Only tries next auth on authentication errors, not other errors (timeout, connection, etc.)
-- In verbose mode, you'll see messages like: `Auth attempt 1 failed with 403, trying next auth...`
-
-This is perfect for testing APIs where different endpoints require different permission levels, or when you want to test with multiple user roles.
-
-### Generate HTML Report
-
-```bash
+# HTML report
 apitest schema.yaml --format html --output report.html
 ```
 
-### Path Parameters
-
-By default, the tool generates test values for path parameters (like `{id}` or `{petId}`). You can provide custom values:
+### Authentication
 
 ```bash
-# Provide specific path parameter values
-apitest schema.yaml --path-params id=123,petId=abc123
+# Bearer token
+apitest schema.yaml --auth bearer=$TOKEN
 
-# Use environment variables
-apitest schema.yaml --path-params id=$POST_ID,userId=${USER_ID}
+# API key (header)
+apitest schema.yaml --auth apikey=X-API-Key:$API_KEY
 
-# Note: If you don't provide values, you'll see warnings about default values
+# API key (query)
+apitest schema.yaml --auth apikey=api_key:$API_KEY:query
+
+# Custom header
+apitest schema.yaml --auth header=Authorization:Custom $TOKEN
 ```
+
+**💡 Tip:** Use environment variables for security:
+```bash
+export API_TOKEN="your-token-here"
+apitest schema.yaml --auth bearer=$API_TOKEN
+```
+
+Auto-detects tokens from schema security requirements using env vars (`API_TOKEN`, `API_KEY`, or `{SCHEME_NAME}_TOKEN`).
+
+### OAuth 2.0 Authentication
+
+API Tester CLI supports OAuth 2.0 flows for APIs that require OAuth authentication. Tokens are automatically fetched, cached securely, and refreshed when needed.
+
+#### Client Credentials Flow
+
+Best for server-to-server authentication (no user interaction):
+
+```yaml
+# In ~/.apitest/config.yaml or .apitest.yaml
+profiles:
+  oauth-api:
+    base_url: https://api.example.com
+    auth:
+      type: oauth2
+      grant_type: client_credentials
+      token_url: https://auth.example.com/oauth/token
+      client_id: $OAUTH_CLIENT_ID
+      client_secret: $OAUTH_CLIENT_SECRET
+      scope: read write  # Optional
+```
+
+**Usage:**
+```bash
+# Set credentials
+export OAUTH_CLIENT_ID="your-client-id"
+export OAUTH_CLIENT_SECRET="your-client-secret"
+
+# Use profile
+apitest schema.yaml --profile oauth-api
+
+# With token caching (recommended)
+apitest schema.yaml --profile oauth-api --use-cached-token
+```
+
+#### Password Grant Flow
+
+For APIs that support username/password authentication:
+
+```yaml
+profiles:
+  oauth-password-api:
+    base_url: https://api.example.com
+    auth:
+      type: oauth2
+      grant_type: password
+      token_url: https://auth.example.com/oauth/token
+      client_id: $OAUTH_CLIENT_ID
+      client_secret: $OAUTH_CLIENT_SECRET
+      username: $OAUTH_USERNAME
+      password: $OAUTH_PASSWORD
+      scope: read write  # Optional
+```
+
+**Usage:**
+```bash
+export OAUTH_CLIENT_ID="your-client-id"
+export OAUTH_CLIENT_SECRET="your-client-secret"
+export OAUTH_USERNAME="your-username"
+export OAUTH_PASSWORD="your-password"
+
+apitest schema.yaml --profile oauth-password-api --use-cached-token
+```
+
+#### Token Caching Behavior
+
+- **Automatic caching**: Tokens are stored securely in your system keyring (macOS Keychain, Windows Credential Manager, Linux Secret Service)
+- **Automatic refresh**: If a refresh token is available, expired tokens are automatically refreshed
+- **Fallback**: If refresh fails, a new token is fetched automatically
+- **Cache key**: Based on `grant_type`, `token_url`, `client_id`, and `scope` (ensures separate tokens for different configurations)
+
+**Benefits:**
+- ✅ No need to manually fetch tokens
+- ✅ Tokens persist across sessions
+- ✅ Automatic expiration handling
+- ✅ Secure storage (never in plain text)
+
+#### OAuth Troubleshooting
+
+**Error: "OAuth token request failed"**
+- Verify `token_url` is correct and accessible
+- Check `client_id` and `client_secret` are valid
+- Ensure network connectivity to token endpoint
+- Check if scope is required and correctly specified
+
+**Error: "OAuth configuration incomplete"**
+- Ensure all required fields are present in config:
+  - `type: oauth2`
+  - `grant_type: client_credentials` or `password`
+  - `token_url`
+  - `client_id`
+  - `client_secret`
+- For password grant, also require `username` and `password`
+
+**Error: "invalid_client" or "401 Unauthorized"**
+- Verify client credentials are correct
+- Check if client is active/enabled in OAuth provider
+- Verify token URL matches provider's endpoint
+
+**Token not refreshing**
+- Check if provider returns `refresh_token` in response
+- Verify refresh token hasn't expired
+- Some providers don't support refresh tokens for client_credentials flow
+
+**Environment variables not expanding**
+- Use `$VAR` syntax (not `${VAR}` in config files)
+- Ensure variables are exported before running: `export OAUTH_CLIENT_ID="value"`
+- Check variable names match exactly (case-sensitive)
+
+**Example with GitHub OAuth:**
+```yaml
+profiles:
+  github-api:
+    base_url: https://api.github.com
+    auth:
+      type: oauth2
+      grant_type: client_credentials
+      token_url: https://github.com/login/oauth/access_token
+      client_id: $GITHUB_CLIENT_ID
+      client_secret: $GITHUB_CLIENT_SECRET
+```
+
+### Profiles (Multiple Environments)
+
+```bash
+# Create config file
+apitest --init-config
+
+# List profiles
+apitest --list-profiles
+
+# Use profile
+apitest schema.yaml --profile production
+```
+
+**Config File** (`~/.apitest/config.yaml` or `.apitest.yaml`):
+```yaml
+profiles:
+  production:
+    base_url: https://api.example.com
+    auth: bearer=$PROD_TOKEN
+    timeout: 30
+  
+  staging:
+    base_url: https://staging.api.example.com
+    auth: bearer=$STAGING_TOKEN
+  
+  multi-auth:
+    base_url: https://api.example.com
+    # Tries each auth in sequence if previous fails
+    auth:
+      - bearer=$ADMIN_TOKEN
+      - bearer=$USER_TOKEN
+```
+
+**Priority:** CLI flags > Profile > Schema > Defaults
+
+### Test History & Token Caching
+
+```bash
+# Store test results locally (for baseline tracking & learning)
+apitest schema.yaml --store-results
+
+# Cache & reuse tokens (stored securely in system keyring)
+apitest schema.yaml --use-cached-token --auth bearer=$TOKEN
+
+# Both together
+apitest schema.yaml --store-results --use-cached-token --auth bearer=$TOKEN
+```
+
+**Features:**
+- Test results saved to `~/.apitest/data.db` (local SQLite)
+- Tokens stored in system keyring (macOS Keychain / Windows Credential Manager / Linux Secret Service)
+- Automatic baseline tracking (first successful test becomes baseline)
+- All data stored locally - never sent to external servers
 
 ### Advanced Options
 
 ```bash
-# Override base URL
-apitest schema.yaml --base-url https://api.production.com
+# Path parameters
+apitest schema.yaml --path-params id=123,petId=abc
 
-# Run tests in parallel
+# Parallel execution
 apitest schema.yaml --parallel
-
-# Verbose output
-apitest schema.yaml --verbose
 
 # Custom timeout
 apitest schema.yaml --timeout 60
 
-# JSON output
+# Output formats
 apitest schema.yaml --format json --output results.json
-
-# CSV output
 apitest schema.yaml --format csv --output results.csv
+apitest schema.yaml --format html --output report.html
 
-# Combine multiple options
-apitest schema.yaml --auth bearer=$TOKEN --path-params id=123 --parallel --format html
+# Verbose output
+apitest schema.yaml --verbose
 ```
 
 ## 📊 Example Output
 
 ```
-🔍 API Tester v1.0
-============================================================
+🔍 API Tester CLI v1.0.0
+Testing 12 endpoint(s) from schema.yaml
 
-📊 Found 12 endpoints to test
-
-Testing Endpoints:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✓ GET    /pets          200 OK (124ms)
 ✓ POST   /pets          201 Created (89ms)
@@ -359,269 +298,110 @@ Testing Endpoints:
 
 📈 Results: 10/12 passed (83% success rate)
 ⏱  Total time: 3.2s
+✓ Test results saved to local database
 ```
 
-## 📖 Detailed Documentation
+## 📖 Command Reference
 
-### Command-Line Options
+### All Options
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--base-url` | `-u` | Override base URL from schema |
-| `--auth` | `-a` | Authentication string (supports `$ENV_VAR`) |
-| `--path-params` | | Path parameters as `key=value,key2=value2` (supports `$ENV_VAR`) |
-| `--profile` | | Use a profile from config file (e.g., `--profile production`) |
-| `--config` | `-c` | Path to config file (default: `~/.apitest/config.yaml` or `.apitest.yaml`) |
-| `--list-profiles` | | List available profiles and exit |
-| `--init-config` | | Create example config file and exit |
-| `--demo` | | Run demo test against public Petstore API (no schema file needed) |
-| `--dry-run` | | Show what would be tested without making HTTP requests |
-| `--validate-schema` | | Validate schema file only (do not run tests) |
-| `--validate-auth` | | Validate auth format only (do not run tests) |
-| `--summary-only` | | Show only summary statistics (useful for CI/CD) |
-| `--format` | `-f` | Output format: `console`, `html`, `json`, `csv` |
-| `--output` | `-o` | Output file path (for html/json/csv) |
+| `--base-url` | `-u` | Override base URL |
+| `--auth` | `-a` | Auth: `bearer=$TOKEN`, `apikey=X-API-Key:$KEY`, etc. |
+| `--path-params` | | Path params: `id=123,petId=abc` |
+| `--profile` | | Use profile from config |
+| `--config` | `-c` | Config file path |
+| `--list-profiles` | | List available profiles |
+| `--init-config` | | Create example config file |
+| `--demo` | | Run demo against Petstore API |
+| `--dry-run` | | Preview tests without running |
+| `--validate-schema` | | Validate schema only |
+| `--validate-auth` | | Validate auth format only |
+| `--summary-only` | | Show summary only (CI/CD) |
+| `--store-results` | | Save results to local database |
+| `--use-cached-token` | | Use/cache tokens from keyring |
+| `--format` | `-f` | Output: `console`, `html`, `json`, `csv` |
+| `--output` | `-o` | Output file path |
 | `--parallel` | `-p` | Run tests in parallel |
-| `--verbose` | `-v` | Verbose output with details |
-| `--timeout` | `-t` | Request timeout in seconds (default: 30) |
-| `--version` | | Show version number |
+| `--verbose` | `-v` | Verbose output |
+| `--timeout` | `-t` | Request timeout (default: 30s) |
+| `--version` | | Show version |
 
-### Authentication Formats
+## 🎯 Common Workflows
 
-**Bearer Token:**
+### CI/CD Integration
 ```bash
---auth bearer=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+# Exit code: 0 if all pass, 1 if any fail
+apitest schema.yaml --summary-only --format json --output results.json
 ```
 
-**API Key (Header):**
+### Health Monitoring
 ```bash
---auth apikey=X-API-Key:your_api_key_here
+# Scheduled health checks
+apitest schema.yaml --store-results --format json --output health.json
 ```
 
-**API Key (Query Parameter):**
+### Development Testing
 ```bash
---auth apikey=api_key:your_api_key_here:query
-```
+# Local server
+apitest schema.yaml --base-url http://localhost:8000 --verbose
 
-**Custom Header:**
-```bash
---auth header=Authorization:Basic base64encoded
-```
-
-### Report Formats
-
-#### HTML Report
-Beautiful, shareable HTML report with:
-- Summary dashboard
-- Endpoint-by-endpoint breakdown
-- Color-coded results
-- Response times and status codes
-
-```bash
-apitest schema.yaml --format html --output report.html
-```
-
-#### JSON Report
-Machine-readable JSON output:
-```json
-{
-  "summary": {
-    "total": 12,
-    "passed": 10,
-    "failed": 2,
-    "success_rate": 83.33,
-    "total_time_seconds": 3.2
-  },
-  "results": [...]
-}
-```
-
-#### CSV Report
-Spreadsheet-friendly CSV output:
-```bash
-apitest schema.yaml --format csv --output results.csv
-```
-
-## 🎯 Use Cases & Common Workflows
-
-### 1. Validate API Documentation Matches Reality
-```bash
-# Validate schema without running tests
-apitest api-schema.yaml --validate-schema
-
-# Run full test suite
-apitest api-schema.yaml --format html
-```
-Ensures your OpenAPI docs accurately reflect your API.
-
-### 2. Test After Deployments / CI/CD Pipeline
-```bash
-# Staging environment
-apitest schema.yaml --base-url https://staging.api.com
-
-# Production with auth
-apitest schema.yaml --base-url https://api.com --auth bearer=$PROD_TOKEN
-
-# Exit code is 0 if all pass, 1 if any fail (perfect for CI/CD)
-apitest schema.yaml --format json --output results.json
-
-# Summary-only output for CI/CD (just pass/fail counts)
-apitest schema.yaml --summary-only
-```
-
-### 3. Preview Tests Before Running
-```bash
-# See what would be tested without making requests
+# Preview before running
 apitest schema.yaml --dry-run
 ```
 
-### 4. Validate Authentication Format
-```bash
-# Test your auth format is correct before running full tests
-apitest schema.yaml --validate-auth --auth bearer=$TOKEN
-```
-
-### 5. Test Third-Party API Integrations
-```bash
-apitest third-party-api.yaml --auth bearer=$API_TOKEN
-```
-Verify third-party APIs are working correctly.
-
-### 6. Monitor API Health
-```bash
-# Run as scheduled job
-apitest production-api.yaml --format json --output health-check.json
-```
-Regular health checks with exportable results.
-
-### 7. Testing After Code Changes
-```bash
-apitest schema.yaml --format html --output test-results.html
-```
-
-### 8. Testing Multiple Environments (Using Profiles)
-```bash
-# Set up profiles in ~/.apitest/config.yaml
-apitest --init-config
-
-# Test different environments easily
-apitest schema.yaml --profile staging
-apitest schema.yaml --profile production
-apitest schema.yaml --profile local
-
-# Or use CLI flags (if you prefer)
-apitest schema.yaml --base-url https://staging.api.com --auth bearer=$STAGING_TOKEN
-apitest schema.yaml --base-url https://api.com --auth bearer=$PROD_TOKEN
-```
-
-## 🎯 Common Patterns
-
-### Test Local Development Server
-```bash
-apitest schema.yaml --base-url http://localhost:8000
-```
-
-### Test with Self-Signed SSL Certificate
-Note: Currently, the tool uses the default SSL verification. For self-signed certificates, you may need to set the `REQUESTS_CA_BUNDLE` environment variable or modify the requests library settings. This is a security feature to prevent man-in-the-middle attacks.
-
-### Test Only Specific Paths (Filtering)
-Currently, the tool tests all endpoints in the schema. To test only specific paths, you can:
-1. Create a filtered schema file with only the paths you want to test
-2. Use schema editing tools to generate a subset
-
-Future versions may include path filtering options like `--path-filter "/api/v1/users/*"`.
-
-### Test Only Specific HTTP Methods
-Currently, all HTTP methods defined in the schema are tested. To test only specific methods:
-1. Create a filtered schema file
-2. Modify the OpenAPI schema to include only the methods you want
-
-Future versions may include method filtering like `--methods get,post`.
-
-## 📁 Example Schemas
-
-We've included example OpenAPI schemas in the `examples/` directory:
-
-- `petstore.yaml` - Complete Petstore API example
-- `simple-api.yaml` - Minimal API example
-- `api-with-auth.yaml` - API with authentication example
-
 ## 🔧 Requirements
 
-- **Python**: 3.8 or higher
-- **Schema Format**: OpenAPI 3.0 or Swagger 2.0 (YAML or JSON)
-- **Platform**: Cross-platform (Windows, macOS, Linux)
+- **Python**: 3.8+
+- **Schema**: OpenAPI 3.0 or Swagger 2.0 (YAML/JSON)
+- **Platform**: Windows, macOS, Linux
 
-### Dependencies
+## 🆚 Why Use This?
 
-- `click>=8.0.0` - CLI framework
-- `requests>=2.28.0` - HTTP requests
-- `pyyaml>=6.0` - YAML parsing
-- `jsonschema>=4.0.0` - JSON validation
-- `rich>=13.0.0` - Beautiful console output
-
-## 🆚 Comparison with Other Tools
-
-| Feature | API Tester CLI | Postman Free | curl scripts |
-|---------|---------------|--------------|--------------|
-| One-command testing | ✅ | ❌ | ❌ |
-| Schema validation | ✅ | Limited | ❌ |
-| CI/CD ready | ✅ | Paid only | Manual |
-| No rate limits | ✅ | ❌ | ✅ |
-| Lightweight | ✅ | ❌ | ✅ |
-| HTML reports | ✅ | Paid only | ❌ |
-| Authentication | ✅ | ✅ | Manual |
-| Parallel execution | ✅ | Paid | Manual |
+✅ One-command API testing  
+✅ CI/CD ready (exit codes, JSON output)  
+✅ No rate limits  
+✅ Lightweight & fast  
+✅ Free (MIT License)  
+✅ Local storage & token caching  
+✅ Beautiful HTML reports
 
 ## 🐛 Troubleshooting
 
-### Installation Issues
-
 **"command not found: apitest"**
-- Make sure pip install directory is in your PATH
-- Try: `python -m apitest.cli --version`
-- On macOS/Linux: `pip install --user apitest-cli`
-- Use a virtual environment: `python -m venv venv && source venv/bin/activate`
-
-**Import Errors**
-- Ensure all dependencies are installed: `pip install -r requirements.txt`
-- Check Python version: `python --version` (requires 3.8+)
-
-**Permission Errors**
-- Use `pip install --user apitest-cli` instead
-- Or use a virtual environment
-
-### Runtime Issues
-
-**"Schema validation failed"**
-- Ensure your OpenAPI file is valid YAML or JSON
-- Check that required fields (`openapi`, `info`, `paths`) are present
-- Validate your schema at [editor.swagger.io](https://editor.swagger.io)
-
-**"Connection error"**
-- Verify the base URL in your schema or use `--base-url`
-- Check network connectivity
-- Ensure the API server is running
-
-**"Timeout"**
-- Increase timeout: `--timeout 60`
-- Check if API is responding slowly
-- Consider using `--parallel` for faster execution
-
-**Authentication Issues**
-- Verify your auth token is valid
-- Check auth format matches: `bearer=TOKEN` or `apikey=KEY:VALUE`
-- Use `--verbose` to see request headers
-
-**Debugging Failed Tests**
 ```bash
-# Get detailed output
+python -m apitest.cli --version
+pip install --user apitest-cli
+```
+
+**Schema validation failed**
+- Validate at [editor.swagger.io](https://editor.swagger.io)
+- Check required fields: `openapi`, `info`, `paths`
+
+**Connection/timeout errors**
+```bash
+# Increase timeout
+apitest schema.yaml --timeout 60
+
+# Check URL
+apitest schema.yaml --base-url https://api.example.com --verbose
+```
+
+**Debug mode**
+```bash
 apitest schema.yaml --verbose
 ```
 
+**OAuth errors**
+- Check token endpoint is accessible: `curl https://auth.example.com/oauth/token`
+- Verify credentials with OAuth provider
+- Use `--verbose` to see detailed OAuth flow logs
+- Check token cache: tokens stored in system keyring (use keyring CLI tools to inspect)
+
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! Please feel free to submit a Pull Request.
 
 ## 📝 License
 
@@ -632,21 +412,11 @@ MIT License - see LICENSE file for details
 - **Issues**: [GitHub Issues](https://github.com/i-akshat-jain/API-Tester-CLI/issues)
 - **Email**: akshatjain1502@gmail.com
 
-## 📚 Additional Resources
+## 📚 Resources
 
-- **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for version history
-- **Examples**: Check the `examples/` directory for sample OpenAPI schemas
-- **Full Documentation**: All documentation is in this README - your single source of truth!
-- **Issues**: Found a bug or have a feature request? [Open an issue](https://github.com/i-akshat-jain/API-Tester-CLI/issues)
-- **Contributing**: Contributions welcome! Please feel free to submit a Pull Request.
-
-## 🚀 Roadmap
-
-- [ ] OAuth 2.0 flow support
-- [ ] GraphQL schema support
-- [ ] Custom test assertions
-- [ ] Performance benchmarking
-- [ ] Integration with CI/CD platforms
+- **Examples**: See `examples/` directory
+- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
+- **Integration Tests**: See [tests/README_INTEGRATION_TESTS.md](tests/README_INTEGRATION_TESTS.md) for OAuth integration testing guide
 
 ---
 

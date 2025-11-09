@@ -10,11 +10,24 @@ from dataclasses import dataclass, field
 
 
 @dataclass
+class OAuthConfig:
+    """OAuth 2.0 configuration"""
+    grant_type: str  # 'client_credentials' or 'password'
+    token_url: str
+    client_id: str
+    client_secret: str
+    type: str = "oauth2"
+    username: Optional[str] = None  # For password grant
+    password: Optional[str] = None  # For password grant
+    scope: Optional[str] = None
+
+
+@dataclass
 class Profile:
     """Represents an API testing profile"""
     name: str
     base_url: Optional[str] = None
-    auth: Optional[Union[str, List[str]]] = None  # Can be a string or list of strings (for multiple auth attempts)
+    auth: Optional[Union[str, List[str], Dict[str, Any]]] = None  # Can be a string, list of strings, or OAuth config dict
     path_params: Dict[str, str] = field(default_factory=dict)
     timeout: Optional[int] = None
     description: Optional[str] = None
@@ -82,11 +95,14 @@ class ConfigManager:
             if not isinstance(profile_data, dict):
                 continue
             
-            # Expand environment variables in auth and path_params
-            # Support both single auth string and list of auth strings (for multiple attempts)
+            # Parse auth configuration
+            # Support: string, list of strings, or OAuth config dict
             auth = profile_data.get('auth')
             if auth:
-                if isinstance(auth, list):
+                if isinstance(auth, dict):
+                    # OAuth 2.0 configuration
+                    auth = self._parse_oauth_config(auth, config_path, profile_name)
+                elif isinstance(auth, list):
                     # Expand env vars for each auth string in the list
                     auth = [self._expand_env_vars(str(a)) for a in auth]
                 elif isinstance(auth, str):
@@ -123,6 +139,99 @@ class ConfigManager:
         
         # Match $VAR or ${VAR}
         return re.sub(r'\$(\w+|\{(\w+)\})', replace_var, value)
+    
+    def _parse_oauth_config(self, auth_dict: Dict[str, Any], config_path: Path, profile_name: str) -> Dict[str, Any]:
+        """
+        Parse OAuth 2.0 configuration from YAML
+        
+        Args:
+            auth_dict: Dictionary containing OAuth config
+            config_path: Path to config file (for error messages)
+            profile_name: Name of the profile (for error messages)
+            
+        Returns:
+            Dictionary with parsed and validated OAuth config
+            
+        Raises:
+            ValueError: If OAuth config is invalid
+        """
+        # Validate that it's an OAuth config
+        if auth_dict.get('type') != 'oauth2':
+            raise ValueError(
+                f"Invalid auth config in profile '{profile_name}' at {config_path}.\n"
+                f"Expected 'type: oauth2' for OAuth configuration, got: {auth_dict.get('type')}"
+            )
+        
+        # Required fields
+        grant_type = auth_dict.get('grant_type')
+        if not grant_type:
+            raise ValueError(
+                f"Missing 'grant_type' in OAuth config for profile '{profile_name}' at {config_path}.\n"
+                f"Supported grant types: 'client_credentials', 'password'"
+            )
+        
+        if grant_type not in ['client_credentials', 'password']:
+            raise ValueError(
+                f"Unsupported grant_type '{grant_type}' in OAuth config for profile '{profile_name}' at {config_path}.\n"
+                f"Supported grant types: 'client_credentials', 'password'"
+            )
+        
+        token_url = auth_dict.get('token_url')
+        if not token_url:
+            raise ValueError(
+                f"Missing 'token_url' in OAuth config for profile '{profile_name}' at {config_path}."
+            )
+        
+        client_id = auth_dict.get('client_id')
+        if not client_id:
+            raise ValueError(
+                f"Missing 'client_id' in OAuth config for profile '{profile_name}' at {config_path}."
+            )
+        
+        client_secret = auth_dict.get('client_secret')
+        if not client_secret:
+            raise ValueError(
+                f"Missing 'client_secret' in OAuth config for profile '{profile_name}' at {config_path}."
+            )
+        
+        # Expand environment variables in OAuth config fields
+        token_url = self._expand_env_vars(token_url)
+        client_id = self._expand_env_vars(client_id)
+        client_secret = self._expand_env_vars(client_secret)
+        
+        # Build OAuth config dict
+        oauth_config = {
+            'type': 'oauth2',
+            'grant_type': grant_type,
+            'token_url': token_url,
+            'client_id': client_id,
+            'client_secret': client_secret
+        }
+        
+        # Optional fields
+        if 'scope' in auth_dict:
+            oauth_config['scope'] = self._expand_env_vars(str(auth_dict['scope']))
+        
+        # For password grant, username and password are required
+        if grant_type == 'password':
+            username = auth_dict.get('username')
+            password = auth_dict.get('password')
+            
+            if not username:
+                raise ValueError(
+                    f"Missing 'username' in OAuth config for profile '{profile_name}' at {config_path}.\n"
+                    f"'username' is required for 'password' grant type."
+                )
+            if not password:
+                raise ValueError(
+                    f"Missing 'password' in OAuth config for profile '{profile_name}' at {config_path}.\n"
+                    f"'password' is required for 'password' grant type."
+                )
+            
+            oauth_config['username'] = self._expand_env_vars(username)
+            oauth_config['password'] = self._expand_env_vars(password)
+        
+        return oauth_config
     
     def get_profile(self, profile_name: str) -> Optional[Profile]:
         """

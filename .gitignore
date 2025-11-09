@@ -148,3 +148,6 @@ package_for_gumroad.sh
 
 .env
 venv/
+
+
+tests/

@@ -66,3 +66,50 @@ profiles:
     base_url: https://external-api.com
     auth: apikey=api_key:$EXTERNAL_KEY:query
 
+  # Example: OAuth 2.0 Client Credentials flow
+  # Best for server-to-server authentication (no user interaction)
+  # Tokens are automatically cached and refreshed when needed
+  oauth-api:
+    description: API with OAuth 2.0 Client Credentials authentication
+    base_url: https://api.oauth-example.com
+    auth:
+      type: oauth2
+      grant_type: client_credentials
+      token_url: https://auth.example.com/oauth/token
+      client_id: $OAUTH_CLIENT_ID          # Set: export OAUTH_CLIENT_ID="your-id"
+      client_secret: $OAUTH_CLIENT_SECRET  # Set: export OAUTH_CLIENT_SECRET="your-secret"
+      scope: read write  # Optional - specify required scopes
+    timeout: 30
+    # Usage: apitest schema.yaml --profile oauth-api --use-cached-token
+
+  # Example: OAuth 2.0 Password/Resource Owner flow
+  # For APIs that support username/password authentication
+  # Tokens are automatically cached and refreshed when needed
+  oauth-password-api:
+    description: API with OAuth 2.0 Password grant authentication
+    base_url: https://api.example.com
+    auth:
+      type: oauth2
+      grant_type: password
+      token_url: https://auth.example.com/oauth/token
+      client_id: $OAUTH_CLIENT_ID          # Set: export OAUTH_CLIENT_ID="your-id"
+      client_secret: $OAUTH_CLIENT_SECRET  # Set: export OAUTH_CLIENT_SECRET="your-secret"
+      username: $OAUTH_USERNAME            # Set: export OAUTH_USERNAME="your-username"
+      password: $OAUTH_PASSWORD             # Set: export OAUTH_PASSWORD="your-password"
+      scope: read write  # Optional - specify required scopes
+    timeout: 30
+    # Usage: apitest schema.yaml --profile oauth-password-api --use-cached-token
+
+  # Example: GitHub OAuth (if your GitHub app supports client_credentials)
+  # Note: Most GitHub OAuth flows require user interaction (authorization code flow)
+  github-api:
+    description: GitHub API with OAuth 2.0
+    base_url: https://api.github.com
+    auth:
+      type: oauth2
+      grant_type: client_credentials
+      token_url: https://github.com/login/oauth/access_token
+      client_id: $GITHUB_CLIENT_ID
+      client_secret: $GITHUB_CLIENT_SECRET
+    # Usage: apitest schema.yaml --profile github-api --use-cached-token
+

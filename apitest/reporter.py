@@ -55,6 +55,7 @@ class Reporter:
         table.add_column("Endpoint", width=35)
         table.add_column("Status Code", width=12)
         table.add_column("Response Time", width=15, justify="right")
+        table.add_column("Data Source", width=12, justify="center")
         
         for result in results.results:
             status_icon = self._get_status_icon(result.status)
@@ -72,21 +73,31 @@ class Reporter:
                 status_code_text = f"[red]Error[/red]"
                 time_text = "[dim]N/A[/dim]"
             
+            # Data source indicator
+            if result.data_source:
+                if result.data_source == 'learned':
+                    data_source_text = "[green]learned[/green]"
+                else:
+                    data_source_text = "[dim]generated[/dim]"
+            else:
+                data_source_text = "[dim]-[/dim]"
+            
             table.add_row(
                 f"[{status_color}]{status_icon}[/{status_color}]",
                 method_text,
                 path_text,
                 status_code_text,
-                time_text
+                time_text,
+                data_source_text
             )
             
             # Show error details in verbose mode or if there are errors
             if (verbose or result.status in [TestStatus.FAIL, TestStatus.ERROR]) and result.error_message:
-                table.add_row("", "", f"[dim red]  → {result.error_message}[/dim red]", "", "", style="dim")
+                table.add_row("", "", f"[dim red]  → {result.error_message}[/dim red]", "", "", "", style="dim")
             
             if verbose and result.schema_mismatch and result.schema_errors:
                 for error in result.schema_errors:
-                    table.add_row("", "", f"[dim yellow]  ⚠ Schema: {error}[/dim yellow]", "", "", style="dim")
+                    table.add_row("", "", f"[dim yellow]  ⚠ Schema: {error}[/dim yellow]", "", "", "", style="dim")
         
         self.console.print(table)
         self.console.print()

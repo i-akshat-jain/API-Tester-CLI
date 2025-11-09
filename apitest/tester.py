@@ -13,6 +13,7 @@ import logging
 
 from apitest.schema_parser import SchemaParser
 from apitest.auth import AuthHandler
+from apitest.core.test_generator import TestGenerator
 from rich.console import Console
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class TestResult:
     response_size_bytes: int = 0
     auth_attempts: int = 1  # Track how many auth methods were tried
     auth_succeeded: bool = True  # Whether any auth method succeeded
+    data_source: Optional[str] = None  # 'learned', 'generated', or None (for non-POST/PUT/PATCH)
 
 
 @dataclass
@@ -88,7 +90,8 @@ class APITester:
     def __init__(self, schema: Dict[str, Any], auth_handlers: List[AuthHandler], 
                  timeout: int = 30, parallel: bool = False, verbose: bool = False,
                  path_params: Optional[Dict[str, str]] = None,
-                 store_results: bool = False, schema_file: Optional[str] = None):
+                 store_results: bool = False, schema_file: Optional[str] = None,
+                 use_smart_data: bool = False, compare_baseline: bool = False):
         self.schema = schema
         self.auth_handlers = auth_handlers if isinstance(auth_handlers, list) else [auth_handlers]
         if not self.auth_handlers:
@@ -102,6 +105,8 @@ class APITester:
         self.console = Console()
         self.store_results = store_results
         self.schema_file = schema_file
+        self.use_smart_data = use_smart_data
+        self.compare_baseline = compare_baseline
         
         self.base_url = self.parser.get_base_url(schema)
         # Ensure we always have a valid base URL (must be full URL starting with http:// or https://)
@@ -218,12 +223,22 @@ class APITester:
         
         # Build request body if needed (same for all auth attempts)
         json_data = None
+        data_source = None
         if method in ['POST', 'PUT', 'PATCH']:
             # Try to get request body from schema
             request_body = operation.get('requestBody', {})
             if request_body:
-                # Generate minimal test data
-                json_data = self._generate_test_data(request_body)
+                # Generate test data (smart or regular)
+                json_data = TestGenerator.generate_test_data(
+                    request_body,
+                    schema_file=self.schema_file if self.use_smart_data else None,
+                    method=method if self.use_smart_data else None,
+                    path=path if self.use_smart_data else None,
+                    use_smart_generation=self.use_smart_data
+                )
+                
+                # Track data source for reporting
+                data_source = 'learned' if self.use_smart_data else 'generated'
         
         # Validate URL before making request
         if not url or not url.startswith(('http://', 'https://')):
@@ -303,14 +318,14 @@ class APITester:
                         # Last auth handler also failed
                         last_result = self._create_result_from_response(
                             method, path, response, response_body, response_time_ms, 
-                            response_size, expected_status, operation, auth_attempts, False
+                            response_size, expected_status, operation, auth_attempts, False, data_source
                         )
                         break
                 else:
                     # This auth worked (not 401/403), use this result
                     last_result = self._create_result_from_response(
                         method, path, response, response_body, response_time_ms,
-                        response_size, expected_status, operation, auth_attempts, True
+                        response_size, expected_status, operation, auth_attempts, True, data_source
                     )
                     break  # Success, no need to try more auth handlers
                     
@@ -402,7 +417,8 @@ class APITester:
     def _create_result_from_response(self, method: str, path: str, response: requests.Response,
                                      response_body: Optional[Dict[str, Any]], response_time_ms: float,
                                      response_size: int, expected_status: Optional[int],
-                                     operation: Dict[str, Any], auth_attempts: int, auth_succeeded: bool) -> TestResult:
+                                     operation: Dict[str, Any], auth_attempts: int, auth_succeeded: bool,
+                                     data_source: Optional[str] = None) -> TestResult:
         """Helper method to create TestResult from a response"""
         # Validate response
         status = TestStatus.PASS
@@ -443,7 +459,8 @@ class APITester:
             response_body=response_body,
             response_size_bytes=response_size,
             auth_attempts=auth_attempts,
-            auth_succeeded=auth_succeeded
+            auth_succeeded=auth_succeeded,
+            data_source=data_source
         )
     
     def _build_url(self, path: str, operation: Optional[Dict[str, Any]] = None) -> str:
@@ -546,94 +563,6 @@ class APITester:
         
         return None
     
-    def _generate_test_data(self, request_body: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate test data for request body, using examples if available"""
-        content = request_body.get('content', {})
-        
-        # Try to find JSON schema
-        json_content = content.get('application/json', {})
-        schema = json_content.get('schema', {})
-        
-        # Check for example or examples in content
-        if 'example' in json_content:
-            return json_content['example']
-        if 'examples' in json_content and json_content['examples']:
-            # Use first example
-            first_example = list(json_content['examples'].values())[0]
-            if isinstance(first_example, dict) and 'value' in first_example:
-                return first_example['value']
-            return first_example
-        
-        # Generate data based on schema
-        data = {}
-        properties = schema.get('properties', {})
-        required = schema.get('required', [])
-        
-        for prop_name, prop_schema in properties.items():
-            # Use example from property schema if available
-            if 'example' in prop_schema:
-                data[prop_name] = prop_schema['example']
-                continue
-            
-            # Use enum first value if available
-            if 'enum' in prop_schema and prop_schema['enum']:
-                data[prop_name] = prop_schema['enum'][0]
-                continue
-            
-            prop_type = prop_schema.get('type', 'string')
-            prop_format = prop_schema.get('format', '')
-            
-            # Generate test values based on type and format
-            if prop_type == 'string':
-                if prop_format == 'email':
-                    data[prop_name] = 'test@example.com'
-                elif prop_format == 'date':
-                    data[prop_name] = '2024-01-01'
-                elif prop_format == 'date-time':
-                    data[prop_name] = '2024-01-01T00:00:00Z'
-                elif prop_format == 'uri':
-                    data[prop_name] = 'https://example.com'
-                elif prop_format == 'uuid':
-                    data[prop_name] = '123e4567-e89b-12d3-a456-426614174000'
-                else:
-                    data[prop_name] = 'test'
-            elif prop_type == 'integer':
-                data[prop_name] = prop_schema.get('minimum', 1) if 'minimum' in prop_schema else 1
-            elif prop_type == 'number':
-                data[prop_name] = float(prop_schema.get('minimum', 1.0)) if 'minimum' in prop_schema else 1.0
-            elif prop_type == 'boolean':
-                data[prop_name] = True
-            elif prop_type == 'array':
-                items_schema = prop_schema.get('items', {})
-                if items_schema:
-                    # Generate one item for array
-                    item_type = items_schema.get('type', 'string')
-                    if item_type == 'string':
-                        data[prop_name] = ['test']
-                    elif item_type == 'integer':
-                        data[prop_name] = [1]
-                    else:
-                        data[prop_name] = []
-                else:
-                    data[prop_name] = []
-            elif prop_type == 'object':
-                # Recursively generate nested object
-                nested_props = prop_schema.get('properties', {})
-                if nested_props:
-                    nested_data = {}
-                    for nested_name, nested_schema in nested_props.items():
-                        nested_type = nested_schema.get('type', 'string')
-                        if nested_type == 'string':
-                            nested_data[nested_name] = 'test'
-                        elif nested_type == 'integer':
-                            nested_data[nested_name] = 1
-                        else:
-                            nested_data[nested_name] = None
-                    data[prop_name] = nested_data
-                else:
-                    data[prop_name] = {}
-        
-        return data
     
     def _validate_response_schema(self, response_body: Any, status_code: int, 
                                   responses: Dict[str, Any]) -> List[str]:
