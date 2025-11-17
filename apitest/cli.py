@@ -555,6 +555,21 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
                 pass  # Silently continue if database check fails
         
         # Initialize tester with auth handlers (supports multiple for retry logic)
+        # Create TestGenerator if AI mode is enabled
+        test_generator = None
+        storage = None
+        if final_ai_config and (final_ai_config.mode in ['ai', 'hybrid'] or final_ai_config.enabled):
+            from apitest.core.test_generator import TestGenerator
+            from apitest.storage import Storage
+            
+            storage = Storage()
+            test_generator = TestGenerator(
+                mode=final_ai_config.mode,
+                ai_config=final_ai_config,
+                storage=storage
+            )
+            test_generator.schema_file = schema_file  # Set schema_file for context
+        
         tester = APITester(
             schema=schema,
             auth_handlers=auth_handlers,
@@ -565,7 +580,9 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
             store_results=store_results,
             schema_file=schema_file,
             use_smart_data=use_smart_data,
-            compare_baseline=compare_baseline
+            compare_baseline=compare_baseline,
+            test_generator=test_generator,
+            storage=storage
         )
         
         # Cache token if enabled and auth was provided

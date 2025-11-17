@@ -37,21 +37,34 @@ API Tester CLI is a command-line tool that automatically tests OpenAPI/Swagger A
   - TestCase dataclass with `is_ai_generated` and `ai_metadata` fields
   - Router tests implemented and passing
 
-**Phase 2: AI Core Components** 🟡 **IN PROGRESS**
+**Phase 2: AI Core Components** ✅ **COMPLETED**
 - ✅ Step 2.1: Groq API Client (12/12 tests passing)
   - `GroqClient` class with error handling and retry logic
   - Custom exceptions: `GroqAPIError`, `GroqRateLimitError`, `GroqAuthenticationError`
   - Token usage tracking
   - Exponential backoff for rate limits and server errors
   - `groq>=0.4.0` added to requirements.txt
-- ✅ Step 2.2: Context Builder (13/13 tests passing)
+- ✅ Step 2.2: Context Builder (14/14 tests passing)
   - `ContextBuilder` class for aggregating context from multiple sources
   - Extracts endpoint info from OpenAPI schema
   - Retrieves historical test results, validated examples, and learned patterns
   - 5-minute caching to reduce storage queries
-- ⏳ Step 2.3: Prompt Builder
-- ⏳ Step 2.4: Response Parser
-- ⏳ Step 2.5: AI Test Generator
+- ✅ Step 2.3: Prompt Builder (25/25 tests passing)
+  - `PromptBuilder` class with template management
+  - Multiple prompt templates (basic, advanced, edge-cases)
+  - Multiple schema formats (JSON, YAML, TOON)
+  - Multiple prompt formats (Markdown, XML)
+  - Default prompt initialization
+- ✅ Step 2.4: Response Parser (21/21 tests passing)
+  - `ResponseParser` class with multiple format support
+  - Parses JSON arrays, single objects, markdown code blocks
+  - Validates test case structure
+  - Handles malformed responses gracefully
+- ✅ Step 2.5: AI Test Generator (14/14 tests passing)
+  - `AITestGenerator` class integrating all components
+  - End-to-end test generation pipeline
+  - Error handling and fallback logic
+  - Test case creation with AI metadata
 
 **Phase 3: AI Execution & Integration** ⏳ **NOT STARTED**
 - ⏳ Step 3.1: Test Case Data Structure (partially done - TestCase has fields, but not fully integrated)
@@ -788,11 +801,11 @@ The AI integration will be implemented in **6 phases**, each with specific deliv
 
 ---
 
-## Phase 2: AI Core Components
+## Phase 2: AI Core Components ✅ COMPLETED
 
 **Goal**: Build the core AI components: context builder, prompt builder, Groq client, and AI test generator.
 
-**Duration**: 4-5 days
+**Duration**: 4-5 days (Completed)
 
 ### Step 2.1: Groq API Client ✅ COMPLETED
 - [x] Create `apitest/ai/` directory
@@ -812,60 +825,70 @@ The AI integration will be implemented in **6 phases**, each with specific deliv
 - [x] Create `apitest/ai/context_builder.py`:
   - [x] `ContextBuilder` class
   - [x] `build_context(schema, schema_file, method, path) -> Dict`:
-    - Gather schema context (endpoint details, request/response schemas)
-    - Load historical results from `Storage.results`
-    - Load validated test cases from `Storage.ai_tests`
-    - Load relevant patterns from `Storage.patterns`
-    - Structure context for prompt building
-  - Cache context to reduce storage queries
-- [ ] Test: Context building with sample schema and data
+    - [x] Gather schema context (endpoint details, request/response schemas)
+    - [x] Load historical results from `Storage.results`
+    - [x] Load validated test cases from `Storage.ai_tests`
+    - [x] Load relevant patterns from `Storage.patterns`
+    - [x] Structure context for prompt building
+  - [x] Cache context to reduce storage queries (5-minute TTL)
+  - [x] Helper methods: `_extract_endpoint_info()`, `_get_historical_context()`, `_get_validated_test_examples()`, `_get_relevant_patterns()`
+- [x] Test: Context building with sample schema and data (14/14 tests passing)
 
-### Step 2.3: Prompt Builder
-- [ ] Create `apitest/ai/prompt_builder.py`:
-  - `PromptBuilder` class
-  - `build_prompt(context, endpoint_info) -> str`:
-    - Load prompt template from `Storage.ai_prompts` (or use default)
-    - Inject context into template
-    - Format for AI model
-  - Support multiple prompt templates (basic, advanced, edge-cases)
-  - Default prompt templates as fallback
-- [ ] Create initial prompt templates:
-  - `test_generation_basic.j2` (Jinja2 template)
-  - `test_generation_advanced.j2`
-  - `test_generation_edge_cases.j2`
-- [ ] Store default templates in `Storage.ai_prompts` on first run
-- [ ] Test: Prompt generation with various contexts
+### Step 2.3: Prompt Builder ✅ COMPLETED
+- [x] Create `apitest/ai/prompt_builder.py`:
+  - [x] `PromptBuilder` class
+  - [x] `build_prompt(context, endpoint_info, template_name='basic') -> str`:
+    - [x] Load prompt template from `Storage.ai_prompts` (or use default)
+    - [x] Inject context into template
+    - [x] Format for AI model
+  - [x] Support multiple prompt templates (basic, advanced, edge-cases)
+  - [x] Support multiple schema formats (JSON, YAML, TOON)
+  - [x] Support multiple prompt formats (Markdown, XML)
+  - [x] Default prompt templates as fallback
+- [x] Create initial prompt templates:
+  - [x] `DEFAULT_BASIC_PROMPT` (Markdown format)
+  - [x] `DEFAULT_BASIC_PROMPT_XML` (XML format)
+  - [x] `DEFAULT_ADVANCED_PROMPT` (Markdown format)
+  - [x] `DEFAULT_EDGE_CASES_PROMPT` (Markdown format)
+- [x] Store default templates in `Storage.ai_prompts` on first run via `initialize_default_prompts()`
+- [x] Test: Prompt generation with various contexts (25/25 tests passing)
 
-### Step 2.4: Response Parser
-- [ ] Create `apitest/ai/response_parser.py`:
-  - `ResponseParser` class
-  - `parse_test_cases(ai_response: str) -> List[Dict]`:
-    - Parse JSON response from AI
-    - Validate structure (method, path, request_body, expected_response)
-    - Extract test scenarios
-    - Handle malformed responses gracefully
-  - Support multiple response formats
-- [ ] Test: Parsing various AI response formats
+### Step 2.4: Response Parser ✅ COMPLETED
+- [x] Create `apitest/ai/response_parser.py`:
+  - [x] `ResponseParser` class
+  - [x] `parse_test_cases(ai_response: str) -> List[Dict]`:
+    - [x] Parse JSON response from AI
+    - [x] Validate structure (method, path, request_body, expected_response)
+    - [x] Extract test scenarios
+    - [x] Handle malformed responses gracefully
+  - [x] Support multiple response formats:
+    - [x] JSON with `test_cases` array
+    - [x] JSON with single test case object
+    - [x] Markdown code blocks with JSON
+    - [x] JSON embedded in text
+- [x] Test: Parsing various AI response formats (21/21 tests passing)
 
-### Step 2.5: AI Test Generator
-- [ ] Create `apitest/ai/ai_generator.py`:
-  - `AITestGenerator` class
-  - `__init__(ai_config, storage)`
-  - `generate_tests(schema, schema_file, endpoints) -> List[TestCase]`:
-    - For each endpoint:
-      - Build context using `ContextBuilder`
-      - Build prompt using `PromptBuilder`
-      - Call Groq API via `GroqClient`
-      - Parse response using `ResponseParser`
-      - Create test case objects
-      - Mark as AI-generated (flag: `is_ai_generated=True`)
-    - Return list of test cases
-  - Error handling and fallback to schema generation
-- [ ] Test: End-to-end test generation with mocked Groq API
+### Step 2.5: AI Test Generator ✅ COMPLETED
+- [x] Create `apitest/ai/ai_generator.py`:
+  - [x] `AITestGenerator` class
+  - [x] `__init__(ai_config, storage)`
+  - [x] `generate_tests(schema, schema_file, endpoints) -> List[TestCase]`:
+    - [x] For each endpoint:
+      - [x] Build context using `ContextBuilder`
+      - [x] Build prompt using `PromptBuilder`
+      - [x] Call Groq API via `GroqClient`
+      - [x] Parse response using `ResponseParser`
+      - [x] Create test case objects
+      - [x] Mark as AI-generated (flag: `is_ai_generated=True`)
+    - [x] Return list of test cases
+  - [x] Error handling and fallback to schema generation
+  - [x] AI metadata tracking (model, prompt_version, generation_timestamp)
+  - [x] Template selection logic (basic/advanced/edge-cases)
+- [x] Test: End-to-end test generation with mocked Groq API (14/14 tests passing)
 
-**Deliverable**: Complete AI test generation pipeline (context → prompt → API → parse → test cases).
+**Deliverable**: ✅ Complete AI test generation pipeline (context → prompt → API → parse → test cases).
 
-**Testing Checkpoint**: AI generator produces valid test cases from sample schemas (with mocked API).
+**Testing Checkpoint**: ✅ AI generator produces valid test cases from sample schemas (with mocked API). All 86 tests passing (12 Groq + 14 Context + 25 Prompt + 21 Parser + 14 Generator).
 
 ---
 

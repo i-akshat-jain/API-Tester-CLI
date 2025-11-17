@@ -3,15 +3,33 @@ Prompt builder for AI test generation
 
 Builds prompts for AI models by loading templates from storage or using defaults,
 and injecting context information.
+
+Supports multiple formats:
+- Schema format: JSON (default) or YAML (more readable)
+- Prompt format: Markdown (default) or XML (better LLM alignment)
 """
 
 import logging
 from typing import Dict, Any, Optional, List
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
 
-# Default prompt templates
+class SchemaFormat(Enum):
+    """Schema formatting options"""
+    JSON = "json"
+    YAML = "yaml"
+    TOON = "toon"  # Compact tabular format for arrays/objects
+
+
+class PromptFormat(Enum):
+    """Prompt formatting options"""
+    MARKDOWN = "markdown"
+    XML = "xml"
+
+
+# Default prompt templates (Markdown format)
 DEFAULT_BASIC_PROMPT = """You are an expert API testing assistant. Generate comprehensive test cases for the following API endpoint.
 
 ## Endpoint Information
@@ -50,6 +68,56 @@ Return your response as a JSON object with this structure:
     }}
   ]
 }}
+"""
+
+# XML-structured prompt templates (better LLM alignment)
+DEFAULT_BASIC_PROMPT_XML = """<task>
+You are an expert API testing assistant. Generate comprehensive test cases for the following API endpoint.
+</task>
+
+<endpoint>
+<method>{method}</method>
+<path>{path}</path>
+<summary>{summary}</summary>
+<description>{description}</description>
+</endpoint>
+
+<request_schema>
+{request_schema}
+</request_schema>
+
+<response_schemas>
+{response_schemas}
+</response_schemas>
+
+<context>
+<historical_test_count>{history_count}</historical_test_count>
+<success_rate>{success_rate}</success_rate>
+<common_status_codes>{common_status_codes}</common_status_codes>
+</context>
+
+<instructions>
+Generate 2-3 test cases for this endpoint. Each test case should include:
+1. A clear test scenario description
+2. A request body (if applicable) with realistic test data
+3. Expected response status code and key fields
+</instructions>
+
+<output_format>
+Return your response as a JSON object with this structure:
+{{
+  "test_cases": [
+    {{
+      "test_scenario": "Description of what this test validates",
+      "request_body": {{...}},
+      "expected_response": {{
+        "status_code": 200,
+        "body": {{...}}
+      }}
+    }}
+  ]
+}}
+</output_format>
 """
 
 DEFAULT_ADVANCED_PROMPT = """You are an expert API testing assistant. Generate advanced test cases for the following API endpoint, including edge cases and error scenarios.
@@ -112,6 +180,80 @@ Return your response as a JSON object with this structure:
 }}
 """
 
+DEFAULT_ADVANCED_PROMPT_XML = """<task>
+You are an expert API testing assistant. Generate advanced test cases for the following API endpoint, including edge cases and error scenarios.
+</task>
+
+<endpoint>
+<method>{method}</method>
+<path>{path}</path>
+<summary>{summary}</summary>
+<description>{description}</description>
+<operation_id>{operation_id}</operation_id>
+<tags>{tags}</tags>
+</endpoint>
+
+<request_schema>
+{request_schema}
+</request_schema>
+
+<request_parameters>
+{parameters}
+</request_parameters>
+
+<response_schemas>
+{response_schemas}
+</response_schemas>
+
+<historical_context>
+<total_test_runs>{history_count}</total_test_runs>
+<success_rate>{success_rate}</success_rate>
+<common_status_codes>{common_status_codes}</common_status_codes>
+<recent_results>
+{recent_results}
+</recent_results>
+</historical_context>
+
+<validated_examples>
+{validated_examples}
+</validated_examples>
+
+<learned_patterns>
+{patterns}
+</learned_patterns>
+
+<instructions>
+Generate 3-5 comprehensive test cases including:
+1. Happy path scenarios (normal successful operations)
+2. Edge cases (boundary values, optional fields, empty values)
+3. Error scenarios (invalid data, missing required fields, type mismatches)
+4. Security scenarios (if applicable)
+
+For each test case, provide:
+- A clear test scenario description
+- Request body/parameters with appropriate test data
+- Expected response status code and structure
+- Rationale for why this test case is important
+</instructions>
+
+<output_format>
+Return your response as a JSON object with this structure:
+{{
+  "test_cases": [
+    {{
+      "test_scenario": "Description of what this test validates",
+      "request_body": {{...}},
+      "expected_response": {{
+        "status_code": 200,
+        "body": {{...}}
+      }},
+      "rationale": "Why this test case is important"
+    }}
+  ]
+}}
+</output_format>
+"""
+
 DEFAULT_EDGE_CASES_PROMPT = """You are an expert API testing assistant specializing in edge cases and error scenarios. Generate test cases that explore boundary conditions, error handling, and unusual inputs.
 
 ## Endpoint Information
@@ -171,6 +313,75 @@ Return your response as a JSON object with this structure:
 }}
 """
 
+DEFAULT_EDGE_CASES_PROMPT_XML = """<task>
+You are an expert API testing assistant specializing in edge cases and error scenarios. Generate test cases that explore boundary conditions, error handling, and unusual inputs.
+</task>
+
+<endpoint>
+<method>{method}</method>
+<path>{path}</path>
+<summary>{summary}</summary>
+<description>{description}</description>
+</endpoint>
+
+<request_schema>
+{request_schema}
+</request_schema>
+
+<request_parameters>
+{parameters}
+</request_parameters>
+
+<response_schemas>
+{response_schemas}
+</response_schemas>
+
+<historical_context>
+<success_rate>{success_rate}</success_rate>
+<common_status_codes>{common_status_codes}</common_status_codes>
+</historical_context>
+
+<instructions>
+Focus on generating edge case and error scenario test cases:
+1. Boundary values (min, max, just above/below limits)
+2. Invalid data types (string where number expected, etc.)
+3. Missing required fields
+4. Empty/null values
+5. Extremely long strings
+6. Special characters and encoding issues
+7. Negative numbers where not expected
+8. Zero values
+9. Duplicate values (if applicable)
+10. Invalid enum values
+
+For each test case, provide:
+- Test scenario description explaining the edge case
+- Request body/parameters with the edge case data
+- Expected response (error status code and error message structure)
+- Why this edge case matters
+</instructions>
+
+<output_format>
+Return your response as a JSON object with this structure:
+{{
+  "test_cases": [
+    {{
+      "test_scenario": "Description of the edge case",
+      "request_body": {{...}},
+      "expected_response": {{
+        "status_code": 400,
+        "body": {{
+          "error": "...",
+          "message": "..."
+        }}
+      }},
+      "rationale": "Why this edge case is important to test"
+    }}
+  ]
+}}
+</output_format>
+"""
+
 
 class PromptBuilder:
     """
@@ -178,6 +389,10 @@ class PromptBuilder:
     
     Loads prompt templates from storage or uses defaults,
     and injects context information.
+    
+    Supports multiple formats:
+    - Schema format: JSON (default) or YAML (more readable)
+    - Prompt format: Markdown (default) or XML (better LLM alignment)
     """
     
     # Template name constants
@@ -185,19 +400,40 @@ class PromptBuilder:
     TEMPLATE_ADVANCED = 'test_generation_advanced'
     TEMPLATE_EDGE_CASES = 'test_generation_edge_cases'
     
-    def __init__(self, storage: Optional[Any] = None):
+    def __init__(self, storage: Optional[Any] = None, 
+                 schema_format: SchemaFormat = SchemaFormat.YAML,
+                 prompt_format: PromptFormat = PromptFormat.XML):
         """
         Initialize prompt builder
         
         Args:
             storage: Optional Storage instance for loading templates
+            schema_format: Format for schemas (JSON or YAML, default: YAML)
+            prompt_format: Format for prompts (Markdown or XML, default: XML)
         """
         self.storage = storage
-        self._default_templates = {
+        self.schema_format = schema_format
+        self.prompt_format = prompt_format
+        
+        # Default templates (Markdown)
+        self._default_templates_md = {
             self.TEMPLATE_BASIC: DEFAULT_BASIC_PROMPT,
             self.TEMPLATE_ADVANCED: DEFAULT_ADVANCED_PROMPT,
             self.TEMPLATE_EDGE_CASES: DEFAULT_EDGE_CASES_PROMPT
         }
+        
+        # XML templates (better LLM alignment)
+        self._default_templates_xml = {
+                self.TEMPLATE_BASIC: DEFAULT_BASIC_PROMPT_XML,
+                self.TEMPLATE_ADVANCED: DEFAULT_ADVANCED_PROMPT_XML,
+                self.TEMPLATE_EDGE_CASES: DEFAULT_EDGE_CASES_PROMPT_XML
+            }
+        
+        # Select templates based on format
+        self._default_templates = (
+            self._default_templates_xml if prompt_format == PromptFormat.XML 
+            else self._default_templates_md
+        )
     
     def build_prompt(self, context: Dict[str, Any], endpoint_info: Dict[str, Any],
                     template_name: str = TEMPLATE_BASIC) -> str:
@@ -294,10 +530,17 @@ class PromptBuilder:
         success_rate = history.get('success_rate')
         success_rate_str = f"{success_rate:.1%}" if success_rate is not None else "N/A"
         common_status_codes = history.get('common_status_codes', {})
-        common_status_codes_str = ', '.join(
-            f"{code}({count})" for code, count in sorted(common_status_codes.items(), 
-                                                         key=lambda x: x[1], reverse=True)[:5]
-        ) or "N/A"
+        # Handle both dict and list formats
+        if isinstance(common_status_codes, dict):
+            common_status_codes_str = ', '.join(
+                f"{code}({count})" for code, count in sorted(common_status_codes.items(), 
+                                                             key=lambda x: x[1], reverse=True)[:5]
+            ) or "N/A"
+        elif isinstance(common_status_codes, list):
+            # If it's a list, just join the codes
+            common_status_codes_str = ', '.join(str(code) for code in common_status_codes[:5]) or "N/A"
+        else:
+            common_status_codes_str = "N/A"
         recent_results = history.get('recent_results', [])
         recent_results_str = self._format_recent_results(recent_results)
         
@@ -328,68 +571,116 @@ class PromptBuilder:
         }
     
     def _format_schema(self, schema: Dict[str, Any]) -> str:
-        """Format schema dictionary as readable string"""
+        """Format schema dictionary as readable string (JSON or YAML)"""
         if not schema:
             return "No request body schema defined"
         
         try:
-            import json
-            return json.dumps(schema, indent=2)
-        except Exception:
+            if self.schema_format == SchemaFormat.YAML:
+                import yaml
+                return yaml.dump(schema, default_flow_style=False, sort_keys=False, allow_unicode=True)
+            else:
+                import json
+                return json.dumps(schema, indent=2)
+        except Exception as e:
+            logger.warning(f"Error formatting schema: {e}, falling back to string")
             return str(schema)
     
     def _format_response_schemas(self, response_schemas: Dict[str, Any]) -> str:
-        """Format response schemas as readable string"""
+        """Format response schemas as readable string (JSON, YAML, or TOON)"""
         if not response_schemas:
             return "No response schemas defined"
+        
+        if self.schema_format == SchemaFormat.TOON:
+            # TOON format: compact tabular representation
+            lines = []
+            lines.append(f"response_schemas[{len(response_schemas)}]{{status_code,schema}}:")
+            for status_code, schema in response_schemas.items():
+                # Convert schema to compact string representation
+                schema_str = str(schema).replace(',', ';').replace('\n', ' ')[:100]
+                lines.append(f"  {status_code},{schema_str}")
+            return "\n".join(lines)
         
         lines = []
         for status_code, schema in response_schemas.items():
             lines.append(f"Status {status_code}:")
             try:
-                import json
-                lines.append(json.dumps(schema, indent=2))
-            except Exception:
+                if self.schema_format == SchemaFormat.YAML:
+                    import yaml
+                    lines.append(yaml.dump(schema, default_flow_style=False, sort_keys=False, allow_unicode=True))
+                else:
+                    import json
+                    lines.append(json.dumps(schema, indent=2))
+            except Exception as e:
+                logger.warning(f"Error formatting response schema for {status_code}: {e}")
                 lines.append(str(schema))
             lines.append("")
         
         return "\n".join(lines).strip()
     
     def _format_parameters(self, parameters: List[Dict[str, Any]]) -> str:
-        """Format parameters list as readable string"""
+        """Format parameters list as readable string (improved contextual formatting)"""
         if not parameters:
             return "No parameters defined"
         
-        lines = []
-        for param in parameters:
-            param_name = param.get('name', 'unknown')
-            param_in = param.get('in', 'unknown')
-            param_type = param.get('schema', {}).get('type', 'unknown')
-            required = param.get('required', False)
-            required_str = "required" if required else "optional"
-            lines.append(f"- {param_name} ({param_in}, {param_type}, {required_str})")
-        
-        return "\n".join(lines)
+        if self.prompt_format == PromptFormat.XML:
+            # XML format for better structure
+            lines = []
+            for param in parameters:
+                param_name = param.get('name', 'unknown')
+                param_in = param.get('in', 'unknown')
+                param_type = param.get('schema', {}).get('type', 'unknown')
+                required = param.get('required', False)
+                description = param.get('description', '').replace("'", "&apos;").replace('"', '&quot;')
+                lines.append(f"<parameter name='{param_name}' location='{param_in}' type='{param_type}' required='{str(required).lower()}' description='{description}' />")
+            return "\n".join(lines)
+        else:
+            # Markdown format
+            lines = []
+            for param in parameters:
+                param_name = param.get('name', 'unknown')
+                param_in = param.get('in', 'unknown')
+                param_type = param.get('schema', {}).get('type', 'unknown')
+                required = param.get('required', False)
+                required_str = "required" if required else "optional"
+                lines.append(f"- {param_name} ({param_in}, {param_type}, {required_str})")
+            return "\n".join(lines)
     
     def _format_recent_results(self, recent_results: List[Dict[str, Any]]) -> str:
-        """Format recent test results as readable string"""
+        """Format recent test results as readable string (improved contextual formatting)"""
         if not recent_results:
             return "No recent test results"
         
-        lines = []
-        for result in recent_results[:5]:
-            status = result.get('status', 'unknown')
-            status_code = result.get('status_code', 'N/A')
-            response_time = result.get('response_time_ms', 'N/A')
-            lines.append(f"- {status} (status: {status_code}, time: {response_time}ms)")
-        
-        return "\n".join(lines)
+        if self.prompt_format == PromptFormat.XML:
+            # XML format for better structure
+            lines = []
+            for result in recent_results[:5]:
+                status = result.get('status', 'unknown')
+                status_code = result.get('status_code', 'N/A')
+                response_time = result.get('response_time_ms', 'N/A')
+                timestamp = result.get('timestamp', 'N/A')
+                lines.append(f"<result status='{status}' status_code='{status_code}' response_time_ms='{response_time}' timestamp='{timestamp}' />")
+            return "\n".join(lines)
+        else:
+            # Markdown format
+            lines = []
+            for result in recent_results[:5]:
+                status = result.get('status', 'unknown')
+                status_code = result.get('status_code', 'N/A')
+                response_time = result.get('response_time_ms', 'N/A')
+                lines.append(f"- {status} (status: {status_code}, time: {response_time}ms)")
+            return "\n".join(lines)
     
     def _format_validated_examples(self, examples: List[Dict[str, Any]]) -> str:
-        """Format validated test examples as readable string"""
+        """Format validated test examples as readable string (JSON, YAML, or TOON)"""
         if not examples:
             return "No validated examples available"
         
+        if self.schema_format == SchemaFormat.TOON:
+            # TOON format: compact tabular representation
+            return self._format_examples_toon(examples)
+        
+        # JSON or YAML format
         lines = []
         for i, example in enumerate(examples[:3], 1):  # Show top 3 examples
             scenario = example.get('test_scenario', 'N/A')
@@ -398,18 +689,67 @@ class PromptBuilder:
             request_body = example.get('request_body')
             if request_body:
                 try:
-                    import json
-                    lines.append(f"  Request: {json.dumps(request_body, indent=2)}")
-                except Exception:
+                    if self.schema_format == SchemaFormat.YAML:
+                        import yaml
+                        lines.append(f"  Request:\n{yaml.dump(request_body, default_flow_style=False, sort_keys=False, allow_unicode=True, indent=2)}")
+                    else:
+                        import json
+                        lines.append(f"  Request: {json.dumps(request_body, indent=2)}")
+                except Exception as e:
+                    logger.warning(f"Error formatting example request body: {e}")
                     lines.append(f"  Request: {str(request_body)}")
         
         return "\n".join(lines)
     
+    def _format_examples_toon(self, examples: List[Dict[str, Any]]) -> str:
+        """Format examples in TOON format (compact tabular)"""
+        if not examples:
+            return "No validated examples available"
+        
+        # Extract common fields from all examples
+        all_keys = set()
+        for example in examples[:3]:
+            all_keys.update(example.keys())
+        
+        # Key fields to include in TOON format
+        key_fields = ['test_scenario', 'validation_status', 'request_body', 'expected_response']
+        # Filter to only include fields that exist in examples
+        key_fields = [f for f in key_fields if f in all_keys]
+        
+        lines = []
+        lines.append(f"validated_examples[{len(examples[:3])}]{{{','.join(key_fields)}}}:")
+        
+        for example in examples[:3]:
+            row_values = []
+            for field in key_fields:
+                value = example.get(field, 'N/A')
+                # Convert complex objects to string representation
+                if isinstance(value, (dict, list)):
+                    # For TOON, we'll use a compact representation
+                    if isinstance(value, dict):
+                        # Show key-value pairs in compact form
+                        compact = ','.join(f"{k}:{v}" for k, v in value.items() if not isinstance(v, (dict, list)))
+                        row_values.append(compact if compact else str(value)[:50])
+                    else:
+                        row_values.append(str(value)[:50])
+                else:
+                    # Escape commas in string values
+                    str_value = str(value).replace(',', ';')
+                    row_values.append(str_value)
+            lines.append("  " + ",".join(row_values))
+        
+        return "\n".join(lines)
+    
     def _format_patterns(self, patterns: List[Dict[str, Any]]) -> str:
-        """Format learned patterns as readable string"""
+        """Format learned patterns as readable string (JSON, YAML, or TOON)"""
         if not patterns:
             return "No learned patterns available"
         
+        if self.schema_format == SchemaFormat.TOON:
+            # TOON format: compact tabular representation
+            return self._format_patterns_toon(patterns)
+        
+        # JSON or YAML format
         lines = []
         for pattern in patterns[:3]:  # Show top 3 patterns
             pattern_type = pattern.get('pattern_type', 'unknown')
@@ -418,12 +758,94 @@ class PromptBuilder:
             lines.append(f"- {pattern_type} (effectiveness: {effectiveness:.2f})")
             if pattern_data:
                 try:
-                    import json
-                    lines.append(f"  Data: {json.dumps(pattern_data, indent=2)}")
-                except Exception:
+                    if self.schema_format == SchemaFormat.YAML:
+                        import yaml
+                        lines.append(f"  Data:\n{yaml.dump(pattern_data, default_flow_style=False, sort_keys=False, allow_unicode=True, indent=2)}")
+                    else:
+                        import json
+                        lines.append(f"  Data: {json.dumps(pattern_data, indent=2)}")
+                except Exception as e:
+                    logger.warning(f"Error formatting pattern data: {e}")
                     lines.append(f"  Data: {str(pattern_data)}")
         
         return "\n".join(lines)
+    
+    def _format_patterns_toon(self, patterns: List[Dict[str, Any]]) -> str:
+        """Format patterns in TOON format (compact tabular)"""
+        if not patterns:
+            return "No learned patterns available"
+        
+        lines = []
+        lines.append(f"patterns[{len(patterns[:3])}]{{pattern_type,effectiveness,pattern_data}}:")
+        
+        for pattern in patterns[:3]:
+            pattern_type = pattern.get('pattern_type', 'unknown')
+            effectiveness = pattern.get('effectiveness', 0)
+            pattern_data = pattern.get('pattern_data', {})
+            
+            # Format pattern_data as compact string
+            if isinstance(pattern_data, dict):
+                data_str = ','.join(f"{k}:{v}" for k, v in pattern_data.items() if not isinstance(v, (dict, list)))
+                if not data_str:
+                    data_str = str(pattern_data)[:50]
+            else:
+                data_str = str(pattern_data)[:50]
+            
+            # Escape commas
+            data_str = data_str.replace(',', ';')
+            lines.append(f"  {pattern_type},{effectiveness:.2f},{data_str}")
+        
+        return "\n".join(lines)
+    
+    def _convert_to_toon(self, data: Any, name: str = "data") -> str:
+        """
+        Convert data structure to TOON format
+        
+        Args:
+            data: Data to convert (dict, list, or primitive)
+            name: Name for the data structure
+            
+        Returns:
+            TOON formatted string
+        """
+        if isinstance(data, list):
+            if not data:
+                return f"{name}[0]{{}}:"
+            
+            # Check if all items are dicts with same keys
+            if all(isinstance(item, dict) for item in data):
+                # Get all unique keys
+                all_keys = set()
+                for item in data:
+                    all_keys.update(item.keys())
+                keys = sorted(list(all_keys))
+                
+                lines = [f"{name}[{len(data)}]{{{','.join(keys)}}}:"]
+                for item in data:
+                    values = []
+                    for key in keys:
+                        value = item.get(key, '')
+                        # Convert to string and escape commas
+                        str_value = str(value).replace(',', ';').replace('\n', ' ')
+                        # Truncate long values
+                        if len(str_value) > 100:
+                            str_value = str_value[:97] + "..."
+                        values.append(str_value)
+                    lines.append("  " + ",".join(values))
+                return "\n".join(lines)
+            else:
+                # Simple list of primitives
+                values = [str(item).replace(',', ';') for item in data]
+                return f"{name}[{len(data)}]:\n  " + "\n  ".join(values)
+        
+        elif isinstance(data, dict):
+            # Single object - convert to key:value pairs
+            pairs = [f"{k}:{v}" for k, v in data.items() if not isinstance(v, (dict, list))]
+            return f"{name}{{{','.join(pairs)}}}"
+        
+        else:
+            # Primitive value
+            return f"{name}: {data}"
     
     def _render_template(self, template: str, variables: Dict[str, Any]) -> str:
         """

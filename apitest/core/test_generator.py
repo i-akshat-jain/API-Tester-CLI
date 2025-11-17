@@ -5,8 +5,11 @@ This module provides functionality for generating test data based on OpenAPI sch
 It will be extended to support intelligent data generation using learned patterns.
 """
 
+import logging
 from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -120,18 +123,44 @@ class TestGenerator:
     
     def _generate_ai_tests(self, schema: Dict[str, Any], endpoints: List[Tuple[str, str, Dict[str, Any]]]) -> List[TestCase]:
         """
-        Generate tests using AI (placeholder for now)
+        Generate tests using AI
         
         Args:
             schema: OpenAPI schema dictionary
             endpoints: List of (method, path, operation) tuples
             
         Returns:
-            List of TestCase objects (empty for now, will be implemented in Phase 2)
+            List of TestCase objects with is_ai_generated=True
         """
-        # TODO: Implement AI test generation in Phase 2
-        # For now, return empty list
-        return []
+        if not self.ai_config:
+            logger.warning("AI config not provided, cannot generate AI tests")
+            return []
+        
+        if not self.ai_config.api_key:
+            logger.warning("AI API key not provided, cannot generate AI tests")
+            return []
+        
+        try:
+            from apitest.ai.ai_generator import AITestGenerator
+            
+            # Get schema_file from instance if available
+            schema_file = getattr(self, 'schema_file', 'unknown')
+            
+            # Create AI generator
+            ai_generator = AITestGenerator(
+                ai_config=self.ai_config,
+                storage=self.storage
+            )
+            
+            # Generate tests
+            return ai_generator.generate_tests(
+                schema=schema,
+                schema_file=schema_file,
+                endpoints=endpoints
+            )
+        except Exception as e:
+            logger.error(f"Error generating AI tests: {e}", exc_info=True)
+            return []
     
     def _combine_tests(self, schema_tests: List[TestCase], ai_tests: List[TestCase]) -> List[TestCase]:
         """

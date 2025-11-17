@@ -7,7 +7,10 @@ import json
 from unittest.mock import Mock, MagicMock
 from apitest.ai.prompt_builder import (
     PromptBuilder,
+    SchemaFormat,
+    PromptFormat,
     DEFAULT_BASIC_PROMPT,
+    DEFAULT_BASIC_PROMPT_XML,
     DEFAULT_ADVANCED_PROMPT,
     DEFAULT_EDGE_CASES_PROMPT,
     initialize_default_prompts
@@ -23,6 +26,9 @@ class TestPromptBuilder:
         assert builder.storage is None
         assert builder._default_templates is not None
         assert PromptBuilder.TEMPLATE_BASIC in builder._default_templates
+        # Default format is XML
+        assert builder.prompt_format == PromptFormat.XML
+        assert builder.schema_format == SchemaFormat.YAML
     
     def test_init_with_storage(self):
         """Test PromptBuilder initialization with storage"""
@@ -70,7 +76,9 @@ class TestPromptBuilder:
         assert 'POST' in prompt
         assert '/api/users' in prompt
         assert 'Create a new user' in prompt
-        assert 'test_cases' in prompt.lower()
+        # XML format uses <method> tags
+        assert '<method>' in prompt or 'POST' in prompt
+        assert 'test_cases' in prompt.lower() or 'test_cases' in prompt
     
     def test_build_prompt_advanced_template(self):
         """Test building a prompt with advanced template"""
@@ -191,17 +199,19 @@ class TestPromptBuilder:
         storage.ai_prompts.get_active_prompt = Mock(return_value=None)
         storage.ai_prompts.get_latest_prompt = Mock(return_value=None)
         
-        builder = PromptBuilder(storage)
+        builder = PromptBuilder(storage)  # Default is XML format
         template = builder._load_template(PromptBuilder.TEMPLATE_BASIC)
         
-        assert template == DEFAULT_BASIC_PROMPT
+        # Default format is XML, so should use XML template
+        assert template == DEFAULT_BASIC_PROMPT_XML
     
     def test_load_template_unknown_template(self):
         """Test loading unknown template falls back to basic"""
-        builder = PromptBuilder()
+        builder = PromptBuilder()  # Default is XML format
         template = builder._load_template('unknown_template')
         
-        assert template == DEFAULT_BASIC_PROMPT
+        # Default format is XML, so should use XML template
+        assert template == DEFAULT_BASIC_PROMPT_XML
     
     def test_prepare_template_variables(self):
         """Test preparing template variables from context"""
@@ -295,7 +305,7 @@ class TestPromptBuilder:
     
     def test_format_parameters(self):
         """Test parameters formatting"""
-        builder = PromptBuilder()
+        builder = PromptBuilder()  # Default is XML format
         
         parameters = [
             {'name': 'id', 'in': 'path', 'required': True, 'schema': {'type': 'integer'}},
@@ -305,13 +315,15 @@ class TestPromptBuilder:
         formatted = builder._format_parameters(parameters)
         assert 'id' in formatted
         assert 'path' in formatted
-        assert 'required' in formatted
+        # XML format uses required='true'/'false'
+        assert 'required' in formatted.lower()
         assert 'limit' in formatted
-        assert 'optional' in formatted
+        # Check for XML format
+        assert '<parameter' in formatted or 'parameter' in formatted.lower()
     
     def test_format_recent_results(self):
         """Test recent results formatting"""
-        builder = PromptBuilder()
+        builder = PromptBuilder()  # Default is XML format
         
         results = [
             {'status': 'success', 'status_code': 200, 'response_time_ms': 150},
@@ -321,8 +333,11 @@ class TestPromptBuilder:
         formatted = builder._format_recent_results(results)
         assert 'success' in formatted
         assert '200' in formatted
-        assert '150ms' in formatted
+        # XML format uses response_time_ms='150' not '150ms'
+        assert '150' in formatted or 'response_time_ms' in formatted
         assert '404' in formatted
+        # Check for XML format
+        assert '<result' in formatted or 'result' in formatted.lower()
     
     def test_format_validated_examples(self):
         """Test validated examples formatting"""

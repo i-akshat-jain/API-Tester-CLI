@@ -9,11 +9,13 @@ from apitest.ai.groq_client import GroqClient, GroqAPIError, GroqRateLimitError,
 from apitest.ai.context_builder import ContextBuilder
 from apitest.ai.prompt_builder import PromptBuilder, initialize_default_prompts
 from apitest.ai.response_parser import ResponseParser
+from apitest.ai.ai_generator import AITestGenerator
 
 __all__ = [
     'GroqClient', 'GroqAPIError', 'GroqRateLimitError', 'GroqAuthenticationError', 'GroqResponse',
     'ContextBuilder',
     'PromptBuilder', 'initialize_default_prompts',
-    'ResponseParser'
+    'ResponseParser',
+    'AITestGenerator'
 ]
 

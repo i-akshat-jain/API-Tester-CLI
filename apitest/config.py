@@ -32,6 +32,8 @@ class AIConfig:
     temperature: float = 0.7
     max_tokens: int = 2000
     enabled: bool = False
+    schema_format: str = "yaml"  # json, yaml, or toon (default: yaml for better readability)
+    prompt_format: str = "xml"  # markdown or xml (default: xml for better LLM alignment)
 
 
 @dataclass
@@ -352,6 +354,22 @@ class ConfigManager:
         if not isinstance(enabled, bool):
             enabled = bool(enabled)
         
+        # Get schema format (default: yaml)
+        schema_format = ai_config_data.get('schema_format', 'yaml')
+        if schema_format not in ['json', 'yaml', 'toon']:
+            raise ValueError(
+                f"Invalid schema_format '{schema_format}' in profile '{profile_name}' at {config_path}.\n"
+                f"Supported formats: json, yaml, toon"
+            )
+        
+        # Get prompt format (default: xml)
+        prompt_format = ai_config_data.get('prompt_format', 'xml')
+        if prompt_format not in ['markdown', 'xml']:
+            raise ValueError(
+                f"Invalid prompt_format '{prompt_format}' in profile '{profile_name}' at {config_path}.\n"
+                f"Supported formats: markdown, xml"
+            )
+        
         return AIConfig(
             provider=provider,
             model=model,
@@ -359,7 +377,9 @@ class ConfigManager:
             mode=mode,
             temperature=float(temperature),
             max_tokens=int(max_tokens),
-            enabled=enabled
+            enabled=enabled,
+            schema_format=schema_format,
+            prompt_format=prompt_format
         )
     
     def get_ai_config(self, profile_name: Optional[str] = None) -> Optional[AIConfig]:
