@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 import logging
 
-from apitest.storage.database import Database
+from apitest.storage.database import Database, Storage
 
 logger = logging.getLogger(__name__)
 
@@ -434,4 +434,456 @@ class PatternExtractor:
                 id_fields.update(nested_ids)
         
         return id_fields
+    
+    def extract_patterns_from_ai_tests(self, schema_file: Optional[str] = None,
+                                       storage: Optional[Storage] = None) -> Dict[str, Any]:
+        """
+        Extract patterns from validated AI test cases (status='approved')
+        
+        Analyzes approved AI-generated test cases to learn what makes a good test case:
+        - Effective test scenarios
+        - Good edge case coverage
+        - Proper data generation strategies
+        - Test structure patterns
+        
+        Args:
+            schema_file: Optional schema file to filter by
+            storage: Optional Storage instance. If None, creates a new one.
+            
+        Returns:
+            Dictionary containing extracted patterns:
+            {
+                'test_scenario_patterns': [...],
+                'data_quality_patterns': [...],
+                'edge_case_patterns': [...],
+                'structure_patterns': [...],
+                'patterns_saved': 5
+            }
+        """
+        logger.debug(f"Extracting patterns from AI tests for schema: {schema_file}")
+        
+        # Use Storage if provided, otherwise create new one
+        if storage is None:
+            storage = Storage()
+        
+        # Get validated (approved) AI test cases
+        validated_tests = storage.ai_tests.get_validated_test_cases(
+            schema_file=schema_file,
+            limit=1000
+        )
+        
+        if not validated_tests:
+            logger.debug("No validated AI test cases found for pattern extraction")
+            return {
+                'test_scenario_patterns': [],
+                'data_quality_patterns': [],
+                'edge_case_patterns': [],
+                'structure_patterns': [],
+                'patterns_saved': 0
+            }
+        
+        logger.debug(f"Analyzing {len(validated_tests)} validated AI test cases")
+        
+        # Extract different types of patterns
+        test_scenario_patterns = self._extract_test_scenario_patterns(validated_tests)
+        data_quality_patterns = self._extract_data_quality_patterns(validated_tests)
+        edge_case_patterns = self._extract_edge_case_patterns(validated_tests)
+        structure_patterns = self._extract_structure_patterns(validated_tests)
+        
+        # Store patterns in storage
+        patterns_saved = 0
+        
+        # Store test scenario patterns
+        for pattern in test_scenario_patterns:
+            pattern_id = storage.patterns.save_pattern(
+                pattern_type='ai_test_scenario',
+                pattern_data=pattern,
+                effectiveness_score=pattern.get('effectiveness_score', 0.8)
+            )
+            patterns_saved += 1
+            logger.debug(f"Saved test scenario pattern {pattern_id}")
+        
+        # Store data quality patterns
+        for pattern in data_quality_patterns:
+            pattern_id = storage.patterns.save_pattern(
+                pattern_type='ai_data_quality',
+                pattern_data=pattern,
+                effectiveness_score=pattern.get('effectiveness_score', 0.8)
+            )
+            patterns_saved += 1
+            logger.debug(f"Saved data quality pattern {pattern_id}")
+        
+        # Store edge case patterns
+        for pattern in edge_case_patterns:
+            pattern_id = storage.patterns.save_pattern(
+                pattern_type='ai_edge_case',
+                pattern_data=pattern,
+                effectiveness_score=pattern.get('effectiveness_score', 0.8)
+            )
+            patterns_saved += 1
+            logger.debug(f"Saved edge case pattern {pattern_id}")
+        
+        # Store structure patterns
+        for pattern in structure_patterns:
+            pattern_id = storage.patterns.save_pattern(
+                pattern_type='ai_structure',
+                pattern_data=pattern,
+                effectiveness_score=pattern.get('effectiveness_score', 0.8)
+            )
+            patterns_saved += 1
+            logger.debug(f"Saved structure pattern {pattern_id}")
+        
+        logger.info(f"Extracted and saved {patterns_saved} patterns from {len(validated_tests)} AI test cases")
+        
+        return {
+            'test_scenario_patterns': test_scenario_patterns,
+            'data_quality_patterns': data_quality_patterns,
+            'edge_case_patterns': edge_case_patterns,
+            'structure_patterns': structure_patterns,
+            'patterns_saved': patterns_saved
+        }
+    
+    def _extract_test_scenario_patterns(self, validated_tests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Extract patterns about effective test scenarios
+        
+        Args:
+            validated_tests: List of validated AI test case dictionaries
+            
+        Returns:
+            List of test scenario patterns
+        """
+        scenario_patterns = []
+        scenario_counter = Counter()
+        method_scenario_map = defaultdict(list)
+        
+        for test_case in validated_tests:
+            test_case_json = test_case.get('test_case_json', {})
+            if isinstance(test_case_json, str):
+                try:
+                    test_case_json = json.loads(test_case_json)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            
+            test_scenario = test_case_json.get('test_scenario', '')
+            method = test_case.get('method', '').upper()
+            path = test_case.get('path', '')
+            
+            if test_scenario:
+                scenario_counter[test_scenario.lower()] += 1
+                method_scenario_map[method].append({
+                    'scenario': test_scenario,
+                    'path': path
+                })
+        
+        # Identify common effective scenarios
+        for scenario, count in scenario_counter.most_common(10):
+            if count >= 2:  # At least 2 occurrences
+                # Extract scenario keywords
+                keywords = self._extract_scenario_keywords(scenario)
+                
+                pattern = {
+                    'scenario_text': scenario,
+                    'keywords': keywords,
+                    'occurrences': count,
+                    'effectiveness_score': min(count / 10.0, 1.0),  # Normalize to 0-1
+                    'pattern_type': 'scenario'
+                }
+                scenario_patterns.append(pattern)
+        
+        # Identify method-specific scenario patterns
+        for method, scenarios in method_scenario_map.items():
+            if len(scenarios) >= 3:
+                common_keywords = self._find_common_keywords([s['scenario'] for s in scenarios])
+                if common_keywords:
+                    pattern = {
+                        'method': method,
+                        'common_keywords': common_keywords,
+                        'scenario_count': len(scenarios),
+                        'effectiveness_score': min(len(scenarios) / 20.0, 1.0),
+                        'pattern_type': 'method_scenario'
+                    }
+                    scenario_patterns.append(pattern)
+        
+        return scenario_patterns
+    
+    def _extract_data_quality_patterns(self, validated_tests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Extract patterns about data quality in test cases
+        
+        Args:
+            validated_tests: List of validated AI test case dictionaries
+            
+        Returns:
+            List of data quality patterns
+        """
+        data_patterns = []
+        field_usage = defaultdict(lambda: {'count': 0, 'types': Counter(), 'examples': []})
+        
+        for test_case in validated_tests:
+            test_case_json = test_case.get('test_case_json', {})
+            if isinstance(test_case_json, str):
+                try:
+                    test_case_json = json.loads(test_case_json)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            
+            request_body = test_case_json.get('request_body', {})
+            if not isinstance(request_body, dict):
+                continue
+            
+            # Analyze request body structure
+            self._analyze_data_structure(request_body, field_usage, '')
+        
+        # Build patterns from field usage
+        for field_path, usage_info in field_usage.items():
+            if usage_info['count'] >= 2:  # At least 2 occurrences
+                pattern = {
+                    'field_path': field_path,
+                    'usage_count': usage_info['count'],
+                    'common_types': dict(usage_info['types'].most_common(3)),
+                    'sample_values': usage_info['examples'][:5],  # Limit to 5 examples
+                    'effectiveness_score': min(usage_info['count'] / 10.0, 1.0),
+                    'pattern_type': 'data_quality'
+                }
+                data_patterns.append(pattern)
+        
+        return data_patterns
+    
+    def _extract_edge_case_patterns(self, validated_tests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Extract patterns about effective edge cases
+        
+        Args:
+            validated_tests: List of validated AI test case dictionaries
+            
+        Returns:
+            List of edge case patterns
+        """
+        edge_case_patterns = []
+        edge_case_keywords = {
+            'boundary': ['boundary', 'limit', 'min', 'max', 'edge', 'extreme'],
+            'invalid': ['invalid', 'error', 'wrong', 'bad', 'malformed'],
+            'empty': ['empty', 'null', 'missing', 'absent'],
+            'special': ['special', 'unicode', 'special character', 'whitespace']
+        }
+        
+        edge_case_counter = defaultdict(int)
+        
+        for test_case in validated_tests:
+            test_case_json = test_case.get('test_case_json', {})
+            if isinstance(test_case_json, str):
+                try:
+                    test_case_json = json.loads(test_case_json)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            
+            test_scenario = test_case_json.get('test_scenario', '').lower()
+            request_body = test_case_json.get('request_body', {})
+            
+            # Check if this is an edge case test
+            for edge_type, keywords in edge_case_keywords.items():
+                if any(keyword in test_scenario for keyword in keywords):
+                    edge_case_counter[edge_type] += 1
+                    
+                    # Extract edge case details
+                    edge_details = self._extract_edge_case_details(request_body, edge_type)
+                    if edge_details:
+                        pattern = {
+                            'edge_type': edge_type,
+                            'scenario': test_scenario,
+                            'details': edge_details,
+                            'method': test_case.get('method', ''),
+                            'path': test_case.get('path', ''),
+                            'effectiveness_score': 0.9,  # Edge cases are valuable
+                            'pattern_type': 'edge_case'
+                        }
+                        edge_case_patterns.append(pattern)
+        
+        # Add summary patterns
+        for edge_type, count in edge_case_counter.items():
+            if count > 0:
+                pattern = {
+                    'edge_type': edge_type,
+                    'occurrences': count,
+                    'effectiveness_score': min(count / 5.0, 1.0),
+                    'pattern_type': 'edge_case_summary'
+                }
+                edge_case_patterns.append(pattern)
+        
+        return edge_case_patterns
+    
+    def _extract_structure_patterns(self, validated_tests: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Extract patterns about test case structure
+        
+        Args:
+            validated_tests: List of validated AI test case dictionaries
+            
+        Returns:
+            List of structure patterns
+        """
+        structure_patterns = []
+        structure_stats = {
+            'has_scenario': 0,
+            'has_request_body': 0,
+            'has_expected_response': 0,
+            'request_body_depth': [],
+            'request_body_field_count': []
+        }
+        
+        for test_case in validated_tests:
+            test_case_json = test_case.get('test_case_json', {})
+            if isinstance(test_case_json, str):
+                try:
+                    test_case_json = json.loads(test_case_json)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            
+            # Check structure completeness
+            if test_case_json.get('test_scenario'):
+                structure_stats['has_scenario'] += 1
+            
+            request_body = test_case_json.get('request_body', {})
+            if request_body:
+                structure_stats['has_request_body'] += 1
+                if isinstance(request_body, dict):
+                    structure_stats['request_body_depth'].append(self._calculate_depth(request_body))
+                    structure_stats['request_body_field_count'].append(len(request_body))
+            
+            if test_case_json.get('expected_response'):
+                structure_stats['has_expected_response'] += 1
+        
+        total = len(validated_tests)
+        if total > 0:
+            # Create structure quality pattern
+            pattern = {
+                'scenario_coverage': structure_stats['has_scenario'] / total,
+                'request_body_coverage': structure_stats['has_request_body'] / total,
+                'expected_response_coverage': structure_stats['has_expected_response'] / total,
+                'avg_request_body_depth': sum(structure_stats['request_body_depth']) / len(structure_stats['request_body_depth']) if structure_stats['request_body_depth'] else 0,
+                'avg_field_count': sum(structure_stats['request_body_field_count']) / len(structure_stats['request_body_field_count']) if structure_stats['request_body_field_count'] else 0,
+                'effectiveness_score': (
+                    (structure_stats['has_scenario'] / total) * 0.3 +
+                    (structure_stats['has_request_body'] / total) * 0.4 +
+                    (structure_stats['has_expected_response'] / total) * 0.3
+                ),
+                'pattern_type': 'structure_quality',
+                'sample_size': total
+            }
+            structure_patterns.append(pattern)
+        
+        return structure_patterns
+    
+    def _extract_scenario_keywords(self, scenario: str) -> List[str]:
+        """Extract keywords from test scenario text"""
+        # Common test keywords
+        keywords = []
+        scenario_lower = scenario.lower()
+        
+        test_keywords = [
+            'create', 'update', 'delete', 'get', 'list', 'search',
+            'validate', 'verify', 'check', 'test',
+            'success', 'failure', 'error', 'invalid',
+            'empty', 'null', 'missing', 'required',
+            'boundary', 'edge', 'limit', 'min', 'max'
+        ]
+        
+        for keyword in test_keywords:
+            if keyword in scenario_lower:
+                keywords.append(keyword)
+        
+        return keywords
+    
+    def _find_common_keywords(self, scenarios: List[str]) -> List[str]:
+        """Find common keywords across multiple scenarios"""
+        keyword_sets = [set(self._extract_scenario_keywords(s)) for s in scenarios]
+        if not keyword_sets:
+            return []
+        
+        # Find intersection of all keyword sets
+        if len(keyword_sets) == 1:
+            common = keyword_sets[0]
+        else:
+            common = set.intersection(*keyword_sets)
+        return list(common)
+    
+    def _analyze_data_structure(self, data: Any, field_usage: Dict, field_path: str):
+        """Analyze data structure and track field usage"""
+        if isinstance(data, dict):
+            for key, value in data.items():
+                new_path = f"{field_path}.{key}" if field_path else key
+                
+                # Initialize if not exists
+                if new_path not in field_usage:
+                    field_usage[new_path] = {'count': 0, 'types': Counter(), 'examples': []}
+                
+                field_usage[new_path]['count'] += 1
+                field_usage[new_path]['types'][type(value).__name__] += 1
+                
+                # Store example values (limit to 5)
+                if len(field_usage[new_path]['examples']) < 5:
+                    if isinstance(value, (str, int, float, bool)):
+                        field_usage[new_path]['examples'].append(str(value)[:50])  # Truncate long values
+                
+                # Recursively analyze nested structures
+                if isinstance(value, (dict, list)):
+                    self._analyze_data_structure(value, field_usage, new_path)
+        
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                new_path = f"{field_path}[{i}]" if field_path else f"[{i}]"
+                self._analyze_data_structure(item, field_usage, new_path)
+    
+    def _extract_edge_case_details(self, request_body: Any, edge_type: str) -> Optional[Dict[str, Any]]:
+        """Extract details about an edge case from request body"""
+        if not isinstance(request_body, dict):
+            return None
+        
+        details = {}
+        
+        if edge_type == 'boundary':
+            # Look for min/max values
+            for key, value in request_body.items():
+                if isinstance(value, (int, float)):
+                    if 'min' in key.lower() or value == 0:
+                        details['min_value'] = value
+                    if 'max' in key.lower() or value > 1000:
+                        details['max_value'] = value
+        
+        elif edge_type == 'empty':
+            # Look for empty/null values
+            empty_fields = [k for k, v in request_body.items() if v in [None, '', [], {}]]
+            if empty_fields:
+                details['empty_fields'] = empty_fields
+        
+        elif edge_type == 'invalid':
+            # Look for invalid format values
+            invalid_fields = []
+            for key, value in request_body.items():
+                if isinstance(value, str) and len(value) > 100:  # Suspiciously long
+                    invalid_fields.append(key)
+            if invalid_fields:
+                details['invalid_fields'] = invalid_fields
+        
+        return details if details else None
+    
+    def _calculate_depth(self, data: Any, current_depth: int = 0) -> int:
+        """Calculate maximum depth of nested data structure"""
+        if isinstance(data, dict):
+            if not data:
+                return current_depth
+            return max(
+                self._calculate_depth(value, current_depth + 1)
+                for value in data.values()
+            )
+        elif isinstance(data, list):
+            if not data:
+                return current_depth
+            return max(
+                self._calculate_depth(item, current_depth + 1)
+                for item in data
+            )
+        else:
+            return current_depth
 

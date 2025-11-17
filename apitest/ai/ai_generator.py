@@ -89,86 +89,256 @@ class AITestGenerator:
             raise ValueError(f"Unsupported AI provider: {provider}")
     
     def generate_tests(self, schema: Dict[str, Any], schema_file: str, 
-                      endpoints: List[Tuple[str, str, Dict[str, Any]]]) -> List[TestCase]:
+                      endpoints: List[Tuple[str, str, Dict[str, Any]]], 
+                      batch_size: int = 8) -> List[TestCase]:
         """
-        Generate test cases for endpoints using AI
+        Generate test cases for endpoints using AI with batch processing
         
         Args:
             schema: OpenAPI schema dictionary
             schema_file: Path/identifier for schema file
             endpoints: List of (method, path, operation) tuples
+            batch_size: Number of endpoints to process per API call (default: 8)
             
         Returns:
             List of TestCase objects with is_ai_generated=True
         """
         test_cases = []
         
-        for method, path, operation in endpoints:
+        # Build shared context once for all endpoints
+        shared_context = self.context_builder.build_shared_context(schema_file)
+        
+        # Process endpoints in batches
+        for batch_start in range(0, len(endpoints), batch_size):
+            batch_end = min(batch_start + batch_size, len(endpoints))
+            batch_endpoints = endpoints[batch_start:batch_end]
+            
             try:
-                # Build context for this endpoint
-                context = self.context_builder.build_context(
+                # Generate tests for this batch
+                batch_test_cases = self._generate_batch_tests(
                     schema=schema,
                     schema_file=schema_file,
-                    method=method,
-                    path=path
+                    endpoints=batch_endpoints,
+                    shared_context=shared_context
                 )
+                test_cases.extend(batch_test_cases)
                 
-                # Extract endpoint info from context
-                endpoint_info = context.get('endpoint', {})
-                
-                # If endpoint_info is empty, build it from operation
-                if not endpoint_info:
-                    endpoint_info = {
-                        'method': method.upper(),
-                        'path': path,
-                        'summary': operation.get('summary', ''),
-                        'description': operation.get('description', ''),
-                        'operation_id': operation.get('operationId', ''),
-                        'tags': operation.get('tags', []),
-                        'parameters': operation.get('parameters', []),
-                        'request_body': operation.get('requestBody', {}),
-                        'responses': operation.get('responses', {}),
-                        'request_schema': {},
-                        'response_schemas': {}
-                    }
-                
-                # Determine template based on endpoint characteristics
-                template_name = self._select_template(operation, context)
-                
-                # Build prompt
-                prompt = self.prompt_builder.build_prompt(
-                    context=context,
-                    endpoint_info=endpoint_info,
-                    template_name=template_name
-                )
-                
-                # Call AI API
-                logger.debug(f"Generating AI tests for {method} {path}")
-                ai_response = self.ai_client.generate(prompt)
-                
-                # Parse response
-                parsed_test_cases = self.response_parser.parse_test_cases(ai_response)
-                
-                # Convert to TestCase objects
-                for parsed_case in parsed_test_cases:
-                    test_case = self._create_test_case(
-                        parsed_case=parsed_case,
-                        method=method,
-                        path=path,
-                        schema_file=schema_file
-                    )
-                    test_cases.append(test_case)
-                
-                logger.info(f"Generated {len(parsed_test_cases)} AI test cases for {method} {path}")
+                logger.info(f"Generated {len(batch_test_cases)} test cases for batch {batch_start//batch_size + 1} ({len(batch_endpoints)} endpoints)")
                 
             except (GroqAPIError, GroqRateLimitError, GroqAuthenticationError) as e:
-                logger.error(f"AI API error generating tests for {method} {path}: {e}")
-                # Continue with other endpoints
-                continue
+                logger.error(f"AI API error generating tests for batch {batch_start//batch_size + 1}: {e}")
+                # Fall back to individual generation for this batch
+                logger.info(f"Falling back to individual generation for batch {batch_start//batch_size + 1}")
+                for method, path, operation in batch_endpoints:
+                    try:
+                        individual_cases = self._generate_single_endpoint_tests(
+                            schema=schema,
+                            schema_file=schema_file,
+                            method=method,
+                            path=path,
+                            operation=operation
+                        )
+                        test_cases.extend(individual_cases)
+                    except Exception as e2:
+                        logger.error(f"Error generating tests for {method} {path}: {e2}")
+                        continue
             except Exception as e:
-                logger.error(f"Unexpected error generating AI tests for {method} {path}: {e}", exc_info=True)
-                # Continue with other endpoints
-                continue
+                logger.error(f"Unexpected error generating batch tests: {e}", exc_info=True)
+                # Fall back to individual generation
+                for method, path, operation in batch_endpoints:
+                    try:
+                        individual_cases = self._generate_single_endpoint_tests(
+                            schema=schema,
+                            schema_file=schema_file,
+                            method=method,
+                            path=path,
+                            operation=operation
+                        )
+                        test_cases.extend(individual_cases)
+                    except Exception as e2:
+                        logger.error(f"Error generating tests for {method} {path}: {e2}")
+                        continue
+        
+        return test_cases
+    
+    def _generate_batch_tests(self, schema: Dict[str, Any], schema_file: str,
+                              endpoints: List[Tuple[str, str, Dict[str, Any]]],
+                              shared_context: Dict[str, Any]) -> List[TestCase]:
+        """
+        Generate test cases for a batch of endpoints in a single API call
+        
+        Args:
+            schema: OpenAPI schema dictionary
+            schema_file: Path/identifier for schema file
+            endpoints: List of (method, path, operation) tuples for this batch
+            shared_context: Shared context dictionary
+            
+        Returns:
+            List of TestCase objects
+        """
+        # Build endpoint info for all endpoints in batch
+        endpoints_info = []
+        endpoint_mapping = {}  # Maps "METHOD /path" to (method, path)
+        
+        for method, path, operation in endpoints:
+            # Build endpoint-specific context
+            context = self.context_builder.build_context(
+                schema=schema,
+                schema_file=schema_file,
+                method=method,
+                path=path
+            )
+            
+            endpoint_info = context.get('endpoint', {})
+            
+            # If endpoint_info is empty, build it from operation
+            if not endpoint_info:
+                endpoint_info = {
+                    'method': method.upper(),
+                    'path': path,
+                    'summary': operation.get('summary', ''),
+                    'description': operation.get('description', ''),
+                    'operation_id': operation.get('operationId', ''),
+                    'tags': operation.get('tags', []),
+                    'parameters': operation.get('parameters', []),
+                    'request_body': operation.get('requestBody', {}),
+                    'responses': operation.get('responses', {}),
+                    'request_schema': {},
+                    'response_schemas': {}
+                }
+            
+            endpoints_info.append(endpoint_info)
+            
+            # Create mapping for batch response parsing
+            endpoint_key = f"{method.upper()} {path}"
+            endpoint_mapping[endpoint_key] = (method, path)
+        
+        # Build batch prompt
+        prompt = self.prompt_builder.build_batch_prompt(
+            shared_context=shared_context,
+            endpoints_info=endpoints_info
+        )
+        
+        # Call AI API once for the batch
+        logger.debug(f"Generating AI tests for batch of {len(endpoints)} endpoints")
+        ai_response = self.ai_client.generate(prompt)
+        
+        # Parse batch response
+        parsed_test_cases = self.response_parser.parse_test_cases(
+            ai_response, 
+            endpoint_mapping=endpoint_mapping
+        )
+        
+        # Log if parsing failed
+        if not parsed_test_cases and ai_response:
+            logger.warning(f"Failed to parse batch AI response. Response length: {len(ai_response)} chars")
+            preview = ai_response[:300] if len(ai_response) > 300 else ai_response
+            logger.debug(f"AI response preview: {preview}")
+        
+        # Convert to TestCase objects
+        test_cases = []
+        for parsed_case in parsed_test_cases:
+            # Extract method and path from parsed case (set by parser for batch responses)
+            method = parsed_case.get('method')
+            path = parsed_case.get('path')
+            
+            # If not in parsed case, try to extract from endpoint field
+            if not method or not path:
+                endpoint_key = parsed_case.get('endpoint', '')
+                if endpoint_key in endpoint_mapping:
+                    method, path = endpoint_mapping[endpoint_key]
+            
+            # Fallback: use first endpoint in batch (shouldn't happen)
+            if not method or not path:
+                method, path, _ = endpoints[0]
+            
+            test_case = self._create_test_case(
+                parsed_case=parsed_case,
+                method=method,
+                path=path,
+                schema_file=schema_file
+            )
+            test_cases.append(test_case)
+        
+        return test_cases
+    
+    def _generate_single_endpoint_tests(self, schema: Dict[str, Any], schema_file: str,
+                                        method: str, path: str, operation: Dict[str, Any]) -> List[TestCase]:
+        """
+        Generate test cases for a single endpoint (fallback method)
+        
+        Args:
+            schema: OpenAPI schema dictionary
+            schema_file: Path/identifier for schema file
+            method: HTTP method
+            path: Endpoint path
+            operation: Operation dictionary
+            
+        Returns:
+            List of TestCase objects
+        """
+        # Build context for this endpoint
+        context = self.context_builder.build_context(
+            schema=schema,
+            schema_file=schema_file,
+            method=method,
+            path=path
+        )
+        
+        # Extract endpoint info from context
+        endpoint_info = context.get('endpoint', {})
+        
+        # If endpoint_info is empty, build it from operation
+        if not endpoint_info:
+            endpoint_info = {
+                'method': method.upper(),
+                'path': path,
+                'summary': operation.get('summary', ''),
+                'description': operation.get('description', ''),
+                'operation_id': operation.get('operationId', ''),
+                'tags': operation.get('tags', []),
+                'parameters': operation.get('parameters', []),
+                'request_body': operation.get('requestBody', {}),
+                'responses': operation.get('responses', {}),
+                'request_schema': {},
+                'response_schemas': {}
+            }
+        
+        # Determine template based on endpoint characteristics
+        template_name = self._select_template(operation, context)
+        
+        # Build prompt
+        prompt = self.prompt_builder.build_prompt(
+            context=context,
+            endpoint_info=endpoint_info,
+            template_name=template_name
+        )
+        
+        # Call AI API
+        logger.debug(f"Generating AI tests for {method} {path}")
+        ai_response = self.ai_client.generate(prompt)
+        
+        # Parse response
+        parsed_test_cases = self.response_parser.parse_test_cases(ai_response)
+        
+        # Log if parsing failed
+        if not parsed_test_cases and ai_response:
+            logger.warning(f"Failed to parse AI response for {method} {path}. Response length: {len(ai_response)} chars")
+            preview = ai_response[:300] if len(ai_response) > 300 else ai_response
+            logger.debug(f"AI response preview: {preview}")
+        
+        # Convert to TestCase objects
+        test_cases = []
+        for parsed_case in parsed_test_cases:
+            test_case = self._create_test_case(
+                parsed_case=parsed_case,
+                method=method,
+                path=path,
+                schema_file=schema_file
+            )
+            test_cases.append(test_case)
+        
+        logger.info(f"Generated {len(parsed_test_cases)} AI test cases for {method} {path}")
         
         return test_cases
     

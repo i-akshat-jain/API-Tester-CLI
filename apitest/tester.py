@@ -40,6 +40,8 @@ class TestResult:
     schema_mismatch: bool = False
     schema_errors: List[str] = field(default_factory=list)
     response_body: Optional[Dict[str, Any]] = None
+    request_body: Optional[Dict[str, Any]] = None  # Request body that was sent
+    expected_response: Optional[Dict[str, Any]] = None  # Expected response (status code and body)
     response_size_bytes: int = 0
     auth_attempts: int = 1  # Track how many auth methods were tried
     auth_succeeded: bool = True  # Whether any auth method succeeded
@@ -333,14 +335,16 @@ class APITester:
                         # Last auth handler also failed
                         last_result = self._create_result_from_response(
                             method, path, response, response_body, response_time_ms, 
-                            response_size, expected_status, operation, auth_attempts, False, data_source
+                            response_size, expected_status, operation, auth_attempts, False, data_source,
+                            request_body=json_data
                         )
                         break
                 else:
                     # This auth worked (not 401/403), use this result
                     last_result = self._create_result_from_response(
                         method, path, response, response_body, response_time_ms,
-                        response_size, expected_status, operation, auth_attempts, True, data_source
+                        response_size, expected_status, operation, auth_attempts, True, data_source,
+                        request_body=json_data
                     )
                     break  # Success, no need to try more auth handlers
                     
@@ -433,13 +437,28 @@ class APITester:
                                      response_body: Optional[Dict[str, Any]], response_time_ms: float,
                                      response_size: int, expected_status: Optional[int],
                                      operation: Dict[str, Any], auth_attempts: int, auth_succeeded: bool,
-                                     data_source: Optional[str] = None) -> TestResult:
+                                     data_source: Optional[str] = None,
+                                     request_body: Optional[Dict[str, Any]] = None,
+                                     expected_response: Optional[Dict[str, Any]] = None) -> TestResult:
         """Helper method to create TestResult from a response"""
         # Validate response
         status = TestStatus.PASS
         error_message = None
         schema_mismatch = False
         schema_errors = []
+        
+        # Build expected_response if not provided
+        if expected_response is None and operation.get('responses'):
+            # Extract expected response from operation
+            responses = operation.get('responses', {})
+            if expected_status:
+                status_key = str(expected_status)
+                if status_key in responses:
+                    expected_response = responses[status_key]
+                    if 'status_code' not in expected_response:
+                        expected_response = {'status_code': expected_status, **expected_response}
+            elif '200' in responses:
+                expected_response = {'status_code': 200, **responses['200']}
         
         # Check status code
         if expected_status and response.status_code != expected_status:
@@ -472,6 +491,8 @@ class APITester:
             schema_mismatch=schema_mismatch,
             schema_errors=schema_errors,
             response_body=response_body,
+            request_body=request_body,
+            expected_response=expected_response,
             response_size_bytes=response_size,
             auth_attempts=auth_attempts,
             auth_succeeded=auth_succeeded,
@@ -762,6 +783,8 @@ class APITester:
                     schema_mismatch=schema_mismatch,
                     schema_errors=schema_errors,
                     response_body=response_body,
+                    request_body=test_case.request_body,
+                    expected_response=test_case.expected_response,
                     response_size_bytes=response_size,
                     auth_attempts=auth_attempts,
                     auth_succeeded=True,

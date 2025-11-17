@@ -58,7 +58,8 @@ from rich.table import Table
 @click.option('--ai-temperature', type=float, help='AI temperature (0.0-2.0, default: 0.7)')
 @click.option('--ai-max-tokens', type=int, help='Maximum tokens for AI generation (default: 2000)')
 @click.option('--ai-enabled', is_flag=True, help='Enable AI test generation (overrides --mode if set)')
-@click.version_option(version=__version__)
+@click.option('--validate-ai', is_flag=True, help='Enable validation prompt after AI tests')
+@click.option('--auto-approve-ai', is_flag=True, help='Skip validation, auto-approve all AI tests')
 def main(schema_file: str, base_url: Optional[str], auth: Optional[str], 
          path_params: Optional[str], profile: Optional[str], config: Optional[str],
          format: str, output: Optional[str], 
@@ -66,7 +67,8 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
          demo: bool, dry_run: bool, validate_schema: bool, validate_auth: bool, summary_only: bool,
          store_results: bool, use_cached_token: bool, use_smart_data: bool, compare_baseline: bool,
          mode: str, ai_provider: Optional[str], ai_model: Optional[str], 
-         ai_temperature: Optional[float], ai_max_tokens: Optional[int], ai_enabled: bool):
+         ai_temperature: Optional[float], ai_max_tokens: Optional[int], ai_enabled: bool,
+         validate_ai: bool, auto_approve_ai: bool):
     """
     API Tester CLI - Automate OpenAPI/Swagger API Testing
     
@@ -693,6 +695,58 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
         else:
             results = tester.run_tests()
         
+        # Handle AI test validation if enabled
+        if validate_ai and not auto_approve_ai:
+            ai_results = [r for r in results.results if r.is_ai_generated]
+            if ai_results:
+                try:
+                    from apitest.ai.validation import ValidationUI
+                    from apitest.storage import Storage
+                    
+                    storage = Storage()
+                    validation_ui = ValidationUI(storage)
+                    
+                    # Convert test results to format expected by validation UI
+                    test_results_dict = [
+                        {
+                            'is_ai_generated': r.is_ai_generated,
+                            'test_case_id': r.test_case_id,
+                            'method': r.method,
+                            'path': r.path,
+                            'status': r.status.value if hasattr(r.status, 'value') else str(r.status),
+                            'status_code': r.status_code,
+                            'response_body': r.response_body
+                        }
+                        for r in ai_results
+                    ]
+                    
+                    # Review and validate
+                    feedback_list = validation_ui.review_ai_tests(test_results=test_results_dict)
+                    
+                    # Save feedback
+                    if feedback_list:
+                        validation_ui.save_feedback(feedback_list)
+                except Exception as e:
+                    if verbose:
+                        console.print(f"[yellow]Could not validate AI tests: {e}[/yellow]")
+                    logger.warning(f"AI validation failed: {e}")
+        elif auto_approve_ai:
+            # Auto-approve all AI tests
+            ai_results = [r for r in results.results if r.is_ai_generated]
+            if ai_results and storage:
+                try:
+                    from apitest.ai.validation import VALIDATION_STATUS_APPROVED
+                    for result in ai_results:
+                        if result.test_case_id:
+                            storage.ai_tests.update_validation_status(
+                                result.test_case_id,
+                                VALIDATION_STATUS_APPROVED
+                            )
+                    if verbose:
+                        console.print(f"[dim]✓ Auto-approved {len(ai_results)} AI test case(s)[/dim]")
+                except Exception as e:
+                    logger.warning(f"Auto-approval failed: {e}")
+        
         # Detect regressions if baseline comparison is enabled
         all_regressions = []
         if compare_baseline and schema_file:
@@ -781,6 +835,86 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
         sys.exit(1)
 
 
+# Create CLI group for multiple commands
+@click.group()
+@click.version_option(version=__version__)
+def cli_group():
+    """API Tester CLI - Automated API testing tool"""
+    pass
+
+
+@cli_group.command()
+@click.option('--test-case-id', type=int, multiple=True, help='Specific test case ID(s) to validate')
+@click.option('--schema-file', type=str, help='Schema file to filter test cases')
+@click.option('--all-pending', is_flag=True, help='Validate all pending test cases')
+@click.option('--export-json', type=click.Path(), help='Export test cases to JSON file for external validation')
+@click.option('--from-json', type=click.Path(exists=True), help='Import validation feedback from JSON file')
+@click.option('--verbose', '-v', is_flag=True, help='Verbose output')
+def validate_ai_tests(test_case_id: tuple, schema_file: Optional[str], all_pending: bool,
+                      export_json: Optional[str], from_json: Optional[str], verbose: bool):
+    """
+    Validate AI-generated test cases
+    
+    Review and provide feedback on AI-generated test cases.
+    """
+    from apitest.ai.validation import ValidationUI
+    from apitest.storage import Storage
+    from rich.console import Console
+    
+    console = Console()
+    
+    try:
+        storage = Storage()
+        validation_ui = ValidationUI(storage)
+        
+        # Import from JSON if provided
+        if from_json:
+            from pathlib import Path
+            feedback_list = validation_ui.import_from_json(Path(from_json))
+            validation_ui.save_feedback(feedback_list)
+            console.print(f"[green]✓ Imported and saved {len(feedback_list)} validation(s)[/green]")
+            return
+        
+        # Export to JSON if requested
+        if export_json:
+            from pathlib import Path
+            test_case_ids_list = list(test_case_id) if test_case_id else None
+            test_cases = validation_ui._get_test_cases_to_review(
+                test_results=None,
+                test_case_ids=test_case_ids_list,
+                schema_file=schema_file
+            )
+            validation_ui.export_to_json(test_cases, Path(export_json))
+            return
+        
+        # Interactive validation
+        test_case_ids_list = list(test_case_id) if test_case_id else None
+        feedback_list = validation_ui.review_ai_tests(
+            test_results=None,
+            test_case_ids=test_case_ids_list,
+            schema_file=schema_file if all_pending or schema_file else None
+        )
+        
+        if feedback_list:
+            validation_ui.save_feedback(feedback_list)
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        if verbose:
+            import traceback
+            console.print(traceback.format_exc())
+        sys.exit(1)
+
+
+# Add main command to group
+cli_group.add_command(main)
+
+# For backward compatibility: main() is the default entry point
+# setup.py entry point uses main() directly
+# Users can call: apitest schema.yaml (main command)
+# Or access validate-ai-tests via: python -m apitest.cli validate-ai-tests
+
 if __name__ == '__main__':
-    main()
+    # When run directly, use the group
+    cli_group()
 

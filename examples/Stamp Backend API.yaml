@@ -1,0 +1,5280 @@
+openapi: 3.0.3
+info:
+  title: Stamp Backend API
+  version: 1.0.0
+  description: API documentation for Stamp Backend application
+  contact:
+    name: API Support
+    email: support@stamp.com
+  license:
+    name: MIT License
+paths:
+  /api/schema/:
+    get:
+      operationId: api_schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/accounts/{uuid}/:
+    get:
+      operationId: accounts_retrieve
+      description: Get public user profile by username or ID.
+      summary: Get user profile
+      parameters:
+      - in: path
+        name: uuid
+        schema:
+          type: string
+        required: true
+      tags:
+      - User Profile
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserProfileResponse'
+          description: ''
+  /api/v1/accounts/me/:
+    get:
+      operationId: accounts_me_retrieve
+      description: Get current user profile details with user type information.
+      summary: Get my profile
+      tags:
+      - User Profile
+      responses:
+        '200':
+          description: No response body
+  /api/v1/accounts/me/analytics/:
+    get:
+      operationId: accounts_me_analytics_retrieve
+      description: Get analytics data for the authenticated user's referral links
+        including shares, clicks, and engagement metrics.
+      summary: Get user analytics
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+        description: 'Number of days to look back (default: 30)'
+      tags:
+      - User Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAnalyticsResponse'
+          description: ''
+  /api/v1/accounts/me/avatar/:
+    post:
+      operationId: accounts_me_avatar_create
+      description: Upload/Update user avatar.
+      summary: Upload avatar
+      tags:
+      - User Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvatarUploadRequest'
+            examples:
+              AvatarUploadRequest:
+                value:
+                  avatar_url: https://example.com/avatars/user123.jpg
+                summary: Avatar Upload Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AvatarUploadRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AvatarUploadRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+  /api/v1/accounts/me/update/:
+    patch:
+      operationId: accounts_me_update_partial_update
+      description: Update current user profile details.
+      summary: Update my profile
+      tags:
+      - User Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+            examples:
+              UpdateProfileRequest:
+                value:
+                  first_name: John
+                  last_name: Doe
+                  phone: '+1234567890'
+                  address: 123 Main St
+                  city: New York
+                  country: USA
+                  date_of_birth: '1990-01-01'
+                summary: Update Profile Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserProfileUpdateRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileUpdateResponse'
+          description: ''
+  /api/v1/analytics/:
+    get:
+      operationId: analytics_retrieve
+      description: Get detailed analytics data
+      summary: Get console analytics
+      parameters:
+      - in: query
+        name: range
+        schema:
+          type: string
+          default: 30d
+        description: Time range for analytics (7d, 30d, 90d, 1y)
+      tags:
+      - Console Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/aggregate/:
+    get:
+      operationId: analytics_aggregate_retrieve
+      description: Get aggregation status for the venue
+      summary: Get aggregation status
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: analytics_aggregate_create
+      description: Aggregate raw events into analytics for a specific time period
+      summary: Aggregate analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/aggregate/status/:
+    get:
+      operationId: analytics_aggregate_status_retrieve
+      description: Get aggregation status for the venue
+      summary: Get aggregation status
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: analytics_aggregate_status_create
+      description: Aggregate raw events into analytics for a specific time period
+      summary: Aggregate analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/console-login/:
+    post:
+      operationId: analytics_console_login_create
+      description: Authenticate console access with password
+      tags:
+      - analytics
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/guides/:
+    get:
+      operationId: analytics_guides_retrieve
+      description: Get guides list with analytics
+      summary: Get console guides
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 50
+        description: Number of guides to return
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search term for guide title or description
+      - in: query
+        name: status
+        schema:
+          type: string
+          default: all
+        description: Filter by status (all, active, inactive)
+      tags:
+      - Console Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/overview/:
+    get:
+      operationId: analytics_overview_retrieve
+      description: Get platform overview statistics
+      summary: Get console overview
+      tags:
+      - Console Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/recent-activity/:
+    get:
+      operationId: analytics_recent_activity_retrieve
+      description: Get recent platform activity with filtering
+      summary: Get recent activity
+      parameters:
+      - in: query
+        name: event_type
+        schema:
+          type: string
+        description: Filter by event type (view, share, api_call, interaction, conversion,
+          qr_scan)
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 20
+        description: Number of recent activities to return
+      - in: query
+        name: since
+        schema:
+          type: string
+        description: Get activities since this timestamp (ISO format)
+      - in: query
+        name: venue_id
+        schema:
+          type: string
+        description: Filter by venue ID
+      tags:
+      - Console Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/refresh/:
+    post:
+      operationId: analytics_refresh_create
+      description: Force refresh console analytics by triggering computation task
+      summary: Refresh console analytics
+      tags:
+      - Console Analytics
+      responses:
+        '202':
+          description: No response body
+  /api/v1/analytics/system-health/:
+    get:
+      operationId: analytics_system_health_retrieve
+      description: Get system health metrics with real-time monitoring
+      summary: Get system health
+      parameters:
+      - in: query
+        name: realtime
+        schema:
+          type: boolean
+          default: false
+        description: Get real-time health data (bypass cache)
+      tags:
+      - Console Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/track/:
+    post:
+      operationId: analytics_track_create
+      description: Track an analytics event
+      summary: Track event
+      tags:
+      - Analytics
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/users/:
+    get:
+      operationId: analytics_users_retrieve
+      description: Get users list with analytics
+      summary: Get console users
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 50
+        description: Number of users to return
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search term for user name or email
+      - in: query
+        name: type
+        schema:
+          type: string
+          default: all
+        description: Filter by user type (all, regular_user, venue_user, admin)
+      tags:
+      - Console Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/venue/:
+    get:
+      operationId: analytics_venue_retrieve
+      description: Get full analytics data for the authenticated venue
+      summary: Get venue analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueAnalytics'
+          description: ''
+    post:
+      operationId: analytics_venue_create
+      description: Update analytics data. Behavior depends on URL pattern
+      summary: Update analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/venue/bulk-update/:
+    get:
+      operationId: analytics_venue_bulk_update_retrieve
+      description: Get full analytics data for the authenticated venue
+      summary: Get venue analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueAnalytics'
+          description: ''
+    post:
+      operationId: analytics_venue_bulk_update_create
+      description: Update analytics data. Behavior depends on URL pattern
+      summary: Update analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/venue/increment-metric/:
+    get:
+      operationId: analytics_venue_increment_metric_retrieve
+      description: Get full analytics data for the authenticated venue
+      summary: Get venue analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueAnalytics'
+          description: ''
+    post:
+      operationId: analytics_venue_increment_metric_create
+      description: Update analytics data. Behavior depends on URL pattern
+      summary: Update analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/venue/metric/:
+    get:
+      operationId: analytics_venue_metric_retrieve
+      description: Get full analytics data for the authenticated venue
+      summary: Get venue analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueAnalytics'
+          description: ''
+    post:
+      operationId: analytics_venue_metric_create
+      description: Update analytics data. Behavior depends on URL pattern
+      summary: Update analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/venue/recalculate/:
+    get:
+      operationId: analytics_venue_recalculate_retrieve
+      description: Get full analytics data for the authenticated venue
+      summary: Get venue analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueAnalytics'
+          description: ''
+    post:
+      operationId: analytics_venue_recalculate_create
+      description: Update analytics data. Behavior depends on URL pattern
+      summary: Update analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/venue/summary/:
+    get:
+      operationId: analytics_venue_summary_retrieve
+      description: Get full analytics data for the authenticated venue
+      summary: Get venue analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueAnalytics'
+          description: ''
+    post:
+      operationId: analytics_venue_summary_create
+      description: Update analytics data. Behavior depends on URL pattern
+      summary: Update analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/venue/update-metric/:
+    get:
+      operationId: analytics_venue_update_metric_retrieve
+      description: Get full analytics data for the authenticated venue
+      summary: Get venue analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueAnalytics'
+          description: ''
+    post:
+      operationId: analytics_venue_update_metric_create
+      description: Update analytics data. Behavior depends on URL pattern
+      summary: Update analytics
+      tags:
+      - Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/analytics/venues/:
+    get:
+      operationId: analytics_venues_retrieve
+      description: Get venues list with analytics
+      summary: Get console venues
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 50
+        description: Number of venues to return
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search term for venue name or description
+      - in: query
+        name: status
+        schema:
+          type: string
+          default: all
+        description: Filter by status (all, active, inactive, onboarded, not_onboarded)
+      tags:
+      - Console Analytics
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: analytics_venues_create
+      description: Refresh venue activity manually
+      summary: Refresh venue activity
+      tags:
+      - Console Analytics
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/google/:
+    post:
+      operationId: auth_google_create
+      description: Authenticate user with Google Sign-In using ID token. This flow
+        does not provide Google refresh tokens. For refresh tokens, use the OAuth
+        2.0 flow.
+      summary: Google Sign-In authentication
+      tags:
+      - Authentication
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/google/callback/:
+    post:
+      operationId: auth_google_callback_create
+      description: Handle Google OAuth 2.0 callback with authorization code to get
+        refresh tokens. This endpoint exchanges the authorization code for access
+        and refresh tokens.
+      summary: Google OAuth callback
+      tags:
+      - Authentication
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/google/url/:
+    get:
+      operationId: auth_google_url_retrieve
+      description: Generate Google OAuth 2.0 URL for frontend to redirect to. This
+        will provide refresh tokens.
+      summary: Get Google OAuth URL
+      tags:
+      - Authentication
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/guest/:
+    post:
+      operationId: auth_guest_create
+      description: Capture guest user information for future connections and lead
+        generation. Only email is required - all other fields are optional and will
+        be stored only if provided.
+      summary: Guest user registration
+      tags:
+      - Authentication
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/health/:
+    get:
+      operationId: auth_health_retrieve
+      description: 'API Endpoint: GET /api/v1/auth/health/'
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: Login an existing user with email and password.
+      summary: User login
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+            examples:
+              LoginRequest:
+                value:
+                  email: user@example.com
+                  password: password123
+                summary: Login Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: Logout the current user by blacklisting their refresh token.
+      summary: User logout
+      tags:
+      - Authentication
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/password-confirm/:
+    post:
+      operationId: auth_password_confirm_create
+      description: Confirm password reset with token and new password.
+      summary: Password reset confirmation
+      tags:
+      - Authentication
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/password-reset/:
+    post:
+      operationId: auth_password_reset_create
+      description: Request a password reset for a user account.
+      summary: Password reset request
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+            examples:
+              PasswordResetRequest:
+                value:
+                  email: user@example.com
+                summary: Password Reset Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: Refresh an expired access token using a valid refresh token.
+      summary: Refresh token
+      tags:
+      - Authentication
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/register/:
+    post:
+      operationId: auth_register_create
+      description: Register a new user account with email and password. Optionally
+        associate the user with a venue by providing venue_id.
+      summary: User registration
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+            examples:
+              ValidRegistrationRequest:
+                value:
+                  email: user@example.com
+                  password: securepassword123
+                  password_confirm: securepassword123
+                  first_name: John
+                  last_name: Doe
+                  auth_provider: email
+                summary: Valid Registration Request
+              RegistrationWithVenue:
+                value:
+                  email: user@example.com
+                  password: securepassword123
+                  password_confirm: securepassword123
+                  first_name: John
+                  last_name: Doe
+                  auth_provider: email
+                  venue_id: 123e4567-e89b-12d3-a456-426614174000
+                summary: Registration with Venue
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/v1/auth/resend-verification/:
+    post:
+      operationId: auth_resend_verification_create
+      description: Resend email verification to user.
+      summary: Resend email verification
+      tags:
+      - Authentication
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/venue-user/:
+    get:
+      operationId: auth_venue_user_list
+      description: List all venue users for the authenticated admin's venue.
+      summary: List venue users
+      tags:
+      - Authentication
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VenueUserResponse'
+          description: ''
+    post:
+      operationId: auth_venue_user_create
+      description: Create a new user for the venue with specified role and permissions.
+        Only venue admins can create users.
+      summary: Create venue user
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueUserCreateRequest'
+            examples:
+              CreateVenueUserRequest:
+                value:
+                  email: staff@venue.com
+                  password: SecurePassword123
+                  password_confirm: SecurePassword123
+                  first_name: John
+                  last_name: Doe
+                  phone: '+1234567890'
+                  role: staff
+                summary: Create Venue User Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VenueUserCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VenueUserCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueUserResponse'
+          description: ''
+    put:
+      operationId: auth_venue_user_update
+      description: Update venue user permissions and password. Only venue admins can
+        update users in their venue. Requires user_id as query parameter.
+      summary: Update venue user
+      parameters:
+      - in: query
+        name: user_id
+        schema:
+          type: string
+        description: User ID to update
+        required: true
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueUserUpdateRequest'
+            examples:
+              UpdateVenueUserRequest:
+                value:
+                  first_name: Jane
+                  last_name: Smith
+                  phone: '+1987654321'
+                  role: manager
+                  password: NewSecurePassword123
+                  password_confirm: NewSecurePassword123
+                summary: Update Venue User Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VenueUserUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VenueUserUpdateRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueUserResponse'
+          description: ''
+    delete:
+      operationId: auth_venue_user_destroy
+      description: Delete a venue user (soft delete). Only venue admins can delete
+        users from their venue. Requires user_id as query parameter.
+      summary: Delete venue user
+      parameters:
+      - in: query
+        name: user_id
+        schema:
+          type: string
+        description: User ID to delete
+        required: true
+      tags:
+      - Authentication
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/verify-email/:
+    post:
+      operationId: auth_verify_email_create
+      description: Verify user email address with verification token.
+      summary: Email verification
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationRequest'
+            examples:
+              EmailVerificationRequest:
+                value:
+                  token: verification_token_here
+                summary: Email Verification Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailVerificationRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/core/feedback/:
+    get:
+      operationId: core_feedback_retrieve
+      description: Get all feedback (admin only).
+      summary: List feedback
+      parameters:
+      - in: query
+        name: feedback_type
+        schema:
+          type: string
+        description: Filter by feedback type
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      tags:
+      - Feedback
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: core_feedback_create
+      description: Submit new feedback. Requires authentication.
+      summary: Submit feedback
+      tags:
+      - Feedback
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FeedbackCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FeedbackCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feedback'
+          description: ''
+  /api/v1/core/referral/analytics/:
+    get:
+      operationId: core_referral_analytics_retrieve
+      description: Get referral analytics for a venue with optional date filtering.
+      summary: Get referral analytics
+      parameters:
+      - in: query
+        name: date_from
+        schema:
+          type: string
+        description: Start date for analytics
+      - in: query
+        name: date_to
+        schema:
+          type: string
+        description: End date for analytics
+      - in: query
+        name: sharer_type
+        schema:
+          type: string
+        description: 'Filter by sharer type: venue_user, regular_user, or all'
+      - in: query
+        name: venue_id
+        schema:
+          type: string
+        description: Venue ID for analytics
+        required: true
+      - in: query
+        name: view_source
+        schema:
+          type: string
+        description: 'Filter by view source: venue_shares, user_shares, or all'
+      tags:
+      - Referral Tracking
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/core/referral/conversions/:
+    get:
+      operationId: core_referral_conversions_retrieve
+      description: Get user's conversions with optional filtering and pagination.
+      summary: List conversions
+      parameters:
+      - in: query
+        name: conversion_type
+        schema:
+          type: string
+        description: Filter by conversion type
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Number of results per page
+      - in: query
+        name: offset
+        schema:
+          type: integer
+        description: Number of results to skip
+      - in: query
+        name: venue_id
+        schema:
+          type: string
+        description: Filter by venue ID
+      tags:
+      - Referral Tracking
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralConversionListResponse'
+          description: ''
+    post:
+      operationId: core_referral_conversions_create
+      description: Record a conversion from a referral link.
+      summary: Record conversion
+      tags:
+      - Referral Tracking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReferralConversionRequest'
+            examples:
+              RecordBookingConversion:
+                value:
+                  link_id: 123e4567-e89b-12d3-a456-426614174000
+                  conversion_type: booking
+                  conversion_value: 299.99
+                  currency: USD
+                  external_reference: BK123456
+                summary: Record Booking Conversion
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReferralConversionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReferralConversionRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralConversion'
+          description: ''
+  /api/v1/core/referral/links/:
+    get:
+      operationId: core_referral_links_retrieve
+      description: Get user's referral links with optional filtering and pagination.
+      summary: List referral links
+      parameters:
+      - in: query
+        name: content_type
+        schema:
+          type: string
+        description: Filter by content type
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Number of results per page
+      - in: query
+        name: offset
+        schema:
+          type: integer
+        description: Number of results to skip
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter by status
+      tags:
+      - Referral Tracking
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralLinkListResponse'
+          description: ''
+    post:
+      operationId: core_referral_links_create
+      description: Create a new referral link for sharing content.
+      summary: Create referral link
+      tags:
+      - Referral Tracking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReferralLinkRequest'
+            examples:
+              CreateGuideShareLink:
+                value:
+                  content_type: guide
+                  content_id: 123e4567-e89b-12d3-a456-426614174000
+                  share_method: email
+                  share_context:
+                    message: Check out this amazing guide!
+                    recipient_email: friend@example.com
+                summary: Create Guide Share Link
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReferralLinkRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReferralLinkRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralLink'
+          description: ''
+  /api/v1/core/referral/links/{link_id}/:
+    get:
+      operationId: core_referral_links_retrieve_2
+      description: Get details of a specific referral link.
+      summary: Get referral link details
+      parameters:
+      - in: path
+        name: link_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Referral Tracking
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralLink'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/save/:
+    get:
+      operationId: save_retrieve
+      description: Get all saved items for the authenticated user
+      summary: Get saved items
+      parameters:
+      - in: query
+        name: content_type
+        schema:
+          type: string
+        description: Filter by content type (guide, collection, venue, stamp)
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search in notes and tags
+      tags:
+      - Saved Items
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: save_create
+      description: Save content to user's saved items
+      summary: Save content
+      tags:
+      - Saved Items
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedItemCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SavedItemCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SavedItemCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: No response body
+    put:
+      operationId: save_update
+      description: Update a specific saved item
+      summary: Update saved item
+      tags:
+      - Saved Items
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SavedItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SavedItemRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: save_destroy
+      description: Remove a specific saved item
+      summary: Remove saved item
+      tags:
+      - Saved Items
+      responses:
+        '200':
+          description: No response body
+  /api/v1/save/{saved_item_id}/:
+    get:
+      operationId: save_retrieve_2
+      description: Get all saved items for the authenticated user
+      summary: Get saved items
+      parameters:
+      - in: query
+        name: content_type
+        schema:
+          type: string
+        description: Filter by content type (guide, collection, venue, stamp)
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      - in: path
+        name: saved_item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search in notes and tags
+      tags:
+      - Saved Items
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: save_create_2
+      description: Save content to user's saved items
+      summary: Save content
+      parameters:
+      - in: path
+        name: saved_item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Saved Items
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedItemCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SavedItemCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SavedItemCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: No response body
+    put:
+      operationId: save_update_2
+      description: Update a specific saved item
+      summary: Update saved item
+      parameters:
+      - in: path
+        name: saved_item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Saved Items
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SavedItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SavedItemRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: save_destroy_2
+      description: Remove a specific saved item
+      summary: Remove saved item
+      parameters:
+      - in: path
+        name: saved_item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Saved Items
+      responses:
+        '200':
+          description: No response body
+  /api/v1/stamps/calendar/events/:
+    get:
+      operationId: stamps_calendar_events_retrieve
+      description: Get calendar events that have been scanned for the authenticated
+        user
+      summary: Get scanned calendar events
+      parameters:
+      - in: query
+        name: days_back
+        schema:
+          type: integer
+        description: Filter events from last N days
+      - in: query
+        name: has_stamp
+        schema:
+          type: boolean
+        description: Filter by stamp status (true/false)
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      tags:
+      - Calendar
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: stamps_calendar_events_partial_update
+      description: |-
+        Reject a calendar event (mark as rejected).
+
+        API Path: PATCH /api/v1/stamps/calendar/events/
+      tags:
+      - Calendar
+      responses:
+        '200':
+          description: No response body
+  /api/v1/stamps/calendar/scan/:
+    post:
+      operationId: stamps_calendar_scan_create
+      description: Trigger calendar scanning for the authenticated user
+      summary: Trigger calendar scan
+      tags:
+      - Calendar
+      responses:
+        '200':
+          description: No response body
+  /api/v1/stamps/collections/:
+    get:
+      operationId: stamps_collections_retrieve
+      description: Get collections for the authenticated user
+      summary: Get collections
+      parameters:
+      - in: query
+        name: include_items
+        schema:
+          type: boolean
+        description: Include collection items in response
+      - in: query
+        name: is_public
+        schema:
+          type: boolean
+        description: Filter by public collections
+      - in: query
+        name: item_id
+        schema:
+          type: string
+        description: Collection item ID for item operations
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search collections by name or description
+      tags:
+      - Collections
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: stamps_collections_create
+      description: Create a new collection or add item to collection
+      summary: Create collection or add item
+      tags:
+      - Collections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: No response body
+    put:
+      operationId: stamps_collections_update
+      description: Update a collection or collection item
+      summary: Update collection or item
+      tags:
+      - Collections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: stamps_collections_destroy
+      description: Delete a collection or collection item
+      summary: Delete collection or item
+      tags:
+      - Collections
+      responses:
+        '200':
+          description: No response body
+  /api/v1/stamps/collections/{collection_id}/:
+    get:
+      operationId: stamps_collections_retrieve_2
+      description: Get collections for the authenticated user
+      summary: Get collections
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: include_items
+        schema:
+          type: boolean
+        description: Include collection items in response
+      - in: query
+        name: is_public
+        schema:
+          type: boolean
+        description: Filter by public collections
+      - in: query
+        name: item_id
+        schema:
+          type: string
+        description: Collection item ID for item operations
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search collections by name or description
+      tags:
+      - Collections
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: stamps_collections_create_2
+      description: Create a new collection or add item to collection
+      summary: Create collection or add item
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Collections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: No response body
+    put:
+      operationId: stamps_collections_update_2
+      description: Update a collection or collection item
+      summary: Update collection or item
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Collections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionCreateRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: stamps_collections_destroy_2
+      description: Delete a collection or collection item
+      summary: Delete collection or item
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Collections
+      responses:
+        '200':
+          description: No response body
+  /api/v1/stamps/place-details/{place_id}/:
+    get:
+      operationId: stamps_place_details_retrieve
+      description: Get detailed information about a specific place from Google Places
+        API (read-only)
+      summary: Get place details
+      parameters:
+      - in: path
+        name: place_id
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: place_id
+        schema:
+          type: string
+        description: Google Places API place_id
+        required: true
+      tags:
+      - Places
+      responses:
+        '200':
+          description: No response body
+  /api/v1/stamps/public/collections/{collection_id}/:
+    get:
+      operationId: stamps_public_collections_retrieve
+      description: Get a public collection by ID (no authentication required)
+      summary: Get public collection
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: include_items
+        schema:
+          type: boolean
+        description: Include collection items in response
+      tags:
+      - Public Collections
+      responses:
+        '200':
+          description: No response body
+  /api/v1/stamps/search-places/:
+    post:
+      operationId: stamps_search_places_create
+      description: Search for places using Google Places API (read-only)
+      summary: Search places
+      tags:
+      - Places
+      responses:
+        '200':
+          description: No response body
+  /api/v1/stamps/stamps/:
+    get:
+      operationId: stamps_stamps_retrieve
+      description: Get all stamps for the authenticated user
+      summary: Get user stamps
+      parameters:
+      - in: query
+        name: is_external
+        schema:
+          type: boolean
+        description: Filter by external venues
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      - in: query
+        name: venue_type
+        schema:
+          type: string
+        description: Filter by venue type
+      tags:
+      - Stamps
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: stamps_stamps_create
+      description: Create a stamp for a venue
+      summary: Create stamp
+      tags:
+      - Stamps
+      responses:
+        '201':
+          description: No response body
+    put:
+      operationId: stamps_stamps_update
+      description: |-
+        Update a specific stamp
+
+        API Path: PUT /api/v1/stamps/stamps/{stamp_id}/
+      tags:
+      - stamps
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: stamps_stamps_destroy
+      description: |-
+        Delete a specific stamp (soft delete)
+
+        API Path: DELETE /api/v1/stamps/stamps/{stamp_id}/
+      tags:
+      - stamps
+      responses:
+        '204':
+          description: No response body
+  /api/v1/stamps/stamps/{stamp_id}/:
+    get:
+      operationId: stamps_stamps_retrieve_2
+      description: Get all stamps for the authenticated user
+      summary: Get user stamps
+      parameters:
+      - in: query
+        name: is_external
+        schema:
+          type: boolean
+        description: Filter by external venues
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      - in: path
+        name: stamp_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: venue_type
+        schema:
+          type: string
+        description: Filter by venue type
+      tags:
+      - Stamps
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: stamps_stamps_create_2
+      description: Create a stamp for a venue
+      summary: Create stamp
+      parameters:
+      - in: path
+        name: stamp_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Stamps
+      responses:
+        '201':
+          description: No response body
+    put:
+      operationId: stamps_stamps_update_2
+      description: |-
+        Update a specific stamp
+
+        API Path: PUT /api/v1/stamps/stamps/{stamp_id}/
+      parameters:
+      - in: path
+        name: stamp_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stamps
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: stamps_stamps_destroy_2
+      description: |-
+        Delete a specific stamp (soft delete)
+
+        API Path: DELETE /api/v1/stamps/stamps/{stamp_id}/
+      parameters:
+      - in: path
+        name: stamp_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - stamps
+      responses:
+        '204':
+          description: No response body
+  /api/v1/venue/:
+    get:
+      operationId: venue_retrieve
+      description: List all venues accessible to the authenticated user with pagination,
+        filtering, and search.
+      summary: List venues
+      parameters:
+      - in: query
+        name: is_published
+        schema:
+          type: boolean
+        description: Filter by published status
+      - in: query
+        name: ordering
+        schema:
+          type: string
+        description: Order by field (name, created_at, updated_at)
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search in name, tagline, description
+      - in: query
+        name: venue_type
+        schema:
+          type: string
+        description: Filter by venue type
+      tags:
+      - Venues
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueListResponse'
+          description: ''
+    post:
+      operationId: venue_create
+      description: Create a new venue.
+      summary: Create venue
+      tags:
+      - Venues
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueCreateRequest'
+            examples:
+              CreateVenueRequest:
+                value:
+                  name: The Grand Hotel
+                  slug: grand-hotel
+                  venue_type: hotel
+                  logo_url: https://example.com/logo.png
+                  hero_images:
+                  - https://example.com/hero1.jpg
+                  - https://example.com/hero2.jpg
+                  tagline: Luxury hospitality at its finest
+                  description: A beautiful hotel in the heart of the city
+                  direct_booking_url: https://example.com/book
+                  website_url: https://example.com
+                  contact_email: info@grandhotel.com
+                  timezone_name: America/New_York
+                  social_media_links:
+                  - https://facebook.com/grandhotel
+                  - https://instagram.com/grandhotel
+                summary: Create Venue Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VenueCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VenueCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+          description: ''
+  /api/v1/venue/{venue_id}/:
+    get:
+      operationId: venue_retrieve_2
+      description: Retrieve a specific venue by ID.
+      summary: Get venue
+      parameters:
+      - in: path
+        name: venue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Venues
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+          description: ''
+    put:
+      operationId: venue_update
+      description: Update a specific venue by ID (full update).
+      summary: Update venue
+      parameters:
+      - in: path
+        name: venue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Venues
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VenueRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VenueRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+          description: ''
+    patch:
+      operationId: venue_partial_update
+      description: Partially update a specific venue by ID.
+      summary: Partially update venue
+      parameters:
+      - in: path
+        name: venue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Venues
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedVenueRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedVenueRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedVenueRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+          description: ''
+    delete:
+      operationId: venue_destroy
+      description: Delete a specific venue by ID (soft delete).
+      summary: Delete venue
+      parameters:
+      - in: path
+        name: venue_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Venues
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/venue/analytics/:
+    get:
+      operationId: venue_analytics_retrieve
+      description: Get analytics data for the authenticated user's venue including
+        guide views, shares, and engagement metrics.
+      summary: Get venue analytics
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+        description: 'Number of days to look back (default: 30)'
+      - in: query
+        name: sharer_type
+        schema:
+          type: string
+        description: 'Filter by sharer type: venue_user, regular_user, or all'
+      - in: query
+        name: view_source
+        schema:
+          type: string
+        description: 'Filter by view source: venue_shares, user_shares, or all'
+      tags:
+      - Analytics
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueAnalyticsResponse'
+          description: ''
+  /api/v1/venue/dashboard/:
+    get:
+      operationId: venue_dashboard_retrieve
+      description: Get venue user dashboard with profile, venues, guide, and activity
+        summary.
+      summary: Venue user dashboard
+      tags:
+      - Dashboard
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueUserDashboardResponse'
+          description: ''
+    put:
+      operationId: venue_dashboard_update
+      description: Update venue user dashboard data including user profile, venues,
+        and guide.
+      summary: Update venue user dashboard
+      tags:
+      - Dashboard
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueUserDashboardUpdateResponse'
+          description: ''
+  /api/v1/venue/email-campaigns/:
+    get:
+      operationId: venue_email_campaigns_retrieve
+      description: List all email campaigns for venues accessible to the authenticated
+        user with pagination and filtering.
+      summary: List email campaigns
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Page number
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        description: Number of items per page
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filter by campaign status
+      - in: query
+        name: venue
+        schema:
+          type: string
+        description: Filter by venue ID
+      tags:
+      - Email Campaigns
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailCampaignListResponse'
+          description: ''
+    post:
+      operationId: venue_email_campaigns_create
+      description: Create a new email campaign for a venue.
+      summary: Create email campaign
+      tags:
+      - Email Campaigns
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailCampaignCreateRequest'
+            examples:
+              CreateEmailCampaignRequest:
+                value:
+                  venue: 123e4567-e89b-12d3-a456-426614174000
+                  campaign_name: Welcome Campaign
+                  template: 123e4567-e89b-12d3-a456-426614174001
+                  status: draft
+                  scheduled_at: '2024-01-15T10:00:00Z'
+                summary: Create Email Campaign Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailCampaignCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailCampaignCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailCampaign'
+          description: ''
+  /api/v1/venue/email-campaigns/{campaign_id}/:
+    get:
+      operationId: venue_email_campaigns_retrieve_2
+      description: Retrieve a specific email campaign by ID.
+      summary: Get email campaign
+      parameters:
+      - in: path
+        name: campaign_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Email Campaigns
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailCampaign'
+          description: ''
+    put:
+      operationId: venue_email_campaigns_update
+      description: Update a specific email campaign by ID.
+      summary: Update email campaign
+      parameters:
+      - in: path
+        name: campaign_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Email Campaigns
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailCampaignRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailCampaignRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailCampaignRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailCampaign'
+          description: ''
+    patch:
+      operationId: venue_email_campaigns_partial_update
+      description: Partially update a specific email campaign by ID (supports scheduling
+        and publishing).
+      summary: Partially update email campaign
+      parameters:
+      - in: path
+        name: campaign_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Email Campaigns
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEmailCampaignRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEmailCampaignRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEmailCampaignRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailCampaign'
+          description: ''
+    delete:
+      operationId: venue_email_campaigns_destroy
+      description: Delete a specific email campaign by ID (soft delete).
+      summary: Delete email campaign
+      parameters:
+      - in: path
+        name: campaign_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Email Campaigns
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/venue/email-templates/:
+    get:
+      operationId: venue_email_templates_list
+      description: List all email templates for venues accessible to the authenticated
+        user.
+      summary: List email templates
+      tags:
+      - Email Templates
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmailTemplate'
+          description: ''
+    post:
+      operationId: venue_email_templates_create
+      description: Create a new email template for a venue.
+      summary: Create email template
+      tags:
+      - Email Templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailTemplateCreateRequest'
+            examples:
+              CreateEmailTemplateRequest:
+                value:
+                  venue: 123e4567-e89b-12d3-a456-426614174000
+                  name: Welcome Email
+                  subject: Welcome to {{venue_name}}!
+                  body: Dear {{guest_name}}, welcome to {{venue_name}}! We're excited
+                    to have you.
+                summary: Create Email Template Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailTemplateCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailTemplateCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailTemplate'
+          description: ''
+  /api/v1/venue/email-templates/{template_id}/:
+    get:
+      operationId: venue_email_templates_retrieve
+      description: Retrieve a specific email template by ID.
+      summary: Get email template
+      parameters:
+      - in: path
+        name: template_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Email Templates
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailTemplate'
+          description: ''
+    put:
+      operationId: venue_email_templates_update
+      description: Update a specific email template by ID.
+      summary: Update email template
+      parameters:
+      - in: path
+        name: template_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Email Templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailTemplateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EmailTemplateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EmailTemplateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailTemplate'
+          description: ''
+    patch:
+      operationId: venue_email_templates_partial_update
+      description: Partially update a specific email template by ID.
+      summary: Partially update email template
+      parameters:
+      - in: path
+        name: template_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Email Templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEmailTemplateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEmailTemplateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEmailTemplateRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailTemplate'
+          description: ''
+    delete:
+      operationId: venue_email_templates_destroy
+      description: Delete a specific email template by ID (soft delete).
+      summary: Delete email template
+      parameters:
+      - in: path
+        name: template_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Email Templates
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/venue/guide/me/:
+    get:
+      operationId: venue_guide_me_retrieve
+      description: Get the guide for the authenticated user's venue.
+      summary: Get my venue's guide
+      tags:
+      - Guides
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+          description: ''
+    post:
+      operationId: venue_guide_me_create
+      description: Create a new guide for the authenticated user's venue. The venue
+        is automatically set from the user's venue.
+      summary: Create my venue's guide
+      tags:
+      - Guides
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueGuideRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VenueGuideRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VenueGuideRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+          description: ''
+    put:
+      operationId: venue_guide_me_update
+      description: Update the guide for the authenticated user's venue. The venue
+        is automatically set from the user's venue.
+      summary: Update my venue's guide
+      tags:
+      - Guides
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueGuideRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VenueGuideRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VenueGuideRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+          description: ''
+    delete:
+      operationId: venue_guide_me_destroy
+      description: Delete the guide for the authenticated user's venue (soft delete).
+      summary: Delete my venue's guide
+      tags:
+      - Guides
+      responses:
+        '204':
+          description: No response body
+  /api/v1/venue/guides/:
+    get:
+      operationId: venue_guides_list
+      description: List all guide for venues accessible to the authenticated user.
+      summary: List guides
+      tags:
+      - Guides
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Guide'
+          description: ''
+  /api/v1/venue/guides/{guide_id}/:
+    get:
+      operationId: venue_guides_retrieve
+      description: Retrieve a specific guide by ID. Requires authentication and venue
+        access.
+      summary: Get guide
+      parameters:
+      - in: path
+        name: guide_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Guides
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+          description: ''
+  /api/v1/venue/profile/me/:
+    get:
+      operationId: venue_profile_me_retrieve
+      description: Get current venue user profile details.
+      summary: Get my venue profile
+      tags:
+      - Venue Profile
+      responses:
+        '200':
+          description: No response body
+    put:
+      operationId: venue_profile_me_update
+      description: Update current venue user profile details (full update - all fields
+        required).
+      summary: Update my venue profile (PUT)
+      tags:
+      - Venue Profile
+      responses:
+        '200':
+          description: No response body
+        '400':
+          description: No response body
+    patch:
+      operationId: venue_profile_me_partial_update
+      description: Update current venue user profile details (partial update).
+      summary: Update my venue profile (PATCH)
+      tags:
+      - Venue Profile
+      responses:
+        '200':
+          description: No response body
+  /api/v1/venue/public/guide/{guide_id}/:
+    get:
+      operationId: venue_public_guide_retrieve
+      description: Retrieve a published guide by ID for public access. No authentication
+        required.
+      summary: Get public guide
+      parameters:
+      - in: path
+        name: guide_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Public Guides
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Guide'
+          description: ''
+  /api/v1/venue/venue-users/:
+    get:
+      operationId: venue_venue_users_list
+      description: List all venue-user relationships for venues accessible to the
+        authenticated user.
+      summary: List venue users
+      tags:
+      - Venue Users
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VenueUser'
+          description: ''
+    post:
+      operationId: venue_venue_users_create
+      description: Add a user to a venue by email.
+      summary: Add user to venue
+      tags:
+      - Venue Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueUserCreateRequest'
+            examples:
+              AddUserToVenueRequest:
+                value:
+                  venue: 123e4567-e89b-12d3-a456-426614174000
+                  user_email: user@example.com
+                  role: manager
+                summary: Add User to Venue Request
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VenueUserCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VenueUserCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueUser'
+          description: ''
+  /api/v1/venue/venue-users/{venue_user_id}/:
+    get:
+      operationId: venue_venue_users_retrieve
+      description: Retrieve a specific venue-user relationship by ID.
+      summary: Get venue user
+      parameters:
+      - in: path
+        name: venue_user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Venue Users
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueUser'
+          description: ''
+    put:
+      operationId: venue_venue_users_update
+      description: Update a specific venue-user relationship by ID.
+      summary: Update venue user
+      parameters:
+      - in: path
+        name: venue_user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Venue Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VenueUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VenueUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VenueUserRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenueUser'
+          description: ''
+    delete:
+      operationId: venue_venue_users_destroy
+      description: Remove a user from a venue (soft delete).
+      summary: Remove user from venue
+      parameters:
+      - in: path
+        name: venue_user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - Venue Users
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+components:
+  schemas:
+    AnalyticsData:
+      type: object
+      properties:
+        time_period:
+          $ref: '#/components/schemas/TimePeriod'
+      required:
+      - time_period
+    AuthProviderEnum:
+      enum:
+      - google
+      - apple
+      - email
+      type: string
+      description: |-
+        * `google` - Google
+        * `apple` - Apple
+        * `email` - Email
+    AvatarUploadRequest:
+      type: object
+      description: Serializer for avatar upload
+      properties:
+        avatar_url:
+          type: string
+          format: uri
+          minLength: 1
+          description: URL of the uploaded avatar image
+      required:
+      - avatar_url
+    BlankEnum:
+      enum:
+      - ''
+    CollectionCreateRequest:
+      type: object
+      description: Serializer for creating collections.
+      properties:
+        venue:
+          type: string
+          format: uuid
+          nullable: true
+        guide:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        display_order:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        description:
+          type: string
+        cover_image_url:
+          type: string
+          format: uri
+          maxLength: 255
+        is_public:
+          type: boolean
+        is_published:
+          type: boolean
+      required:
+      - name
+    ContentTypeF84Enum:
+      enum:
+      - guide
+      - collection
+      - venue
+      type: string
+      description: |-
+        * `guide` - Guide
+        * `collection` - Collection
+        * `venue` - Venue
+    ConversionTypeEnum:
+      enum:
+      - booking
+      - inquiry
+      - signup
+      - stamp
+      type: string
+      description: |-
+        * `booking` - Booking
+        * `inquiry` - Inquiry
+        * `signup` - Signup
+        * `stamp` - Stamp
+    CurrencyEnum:
+      enum:
+      - USD
+      - EUR
+      - GBP
+      - CAD
+      - AUD
+      type: string
+      description: |-
+        * `USD` - US Dollar
+        * `EUR` - Euro
+        * `GBP` - British Pound
+        * `CAD` - Canadian Dollar
+        * `AUD` - Australian Dollar
+    DashboardData:
+      type: object
+      properties:
+        venues:
+          $ref: '#/components/schemas/UserVenues'
+        guide:
+          $ref: '#/components/schemas/UserGuide'
+      required:
+      - guide
+      - venues
+    EmailCampaign:
+      type: object
+      description: Serializer for EmailCampaign model
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        venue:
+          type: string
+          format: uuid
+          readOnly: true
+          description: The venue this email campaign belongs to
+        venue_name:
+          type: string
+          readOnly: true
+        campaign_name:
+          type: string
+          description: Name of the email campaign
+          maxLength: 255
+        template:
+          type: string
+          format: uuid
+          description: The email template for this campaign
+        template_name:
+          type: string
+          readOnly: true
+        status:
+          type: string
+          description: Status of the email campaign (e.g., draft, published, archived)
+          maxLength: 255
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Schedule for the email campaign
+        sent_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: Date and time the email campaign was sent
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - campaign_name
+      - created_at
+      - id
+      - sent_at
+      - template_name
+      - updated_at
+      - venue
+      - venue_name
+    EmailCampaignCreateRequest:
+      type: object
+      description: Serializer for creating EmailCampaign
+      properties:
+        venue:
+          type: string
+          format: uuid
+          description: The venue this email campaign belongs to
+        campaign_name:
+          type: string
+          minLength: 1
+          description: Name of the email campaign
+          maxLength: 255
+        template:
+          type: string
+          format: uuid
+          description: The email template for this campaign
+        status:
+          type: string
+          minLength: 1
+          description: Status of the email campaign (e.g., draft, published, archived)
+          maxLength: 255
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Schedule for the email campaign
+      required:
+      - campaign_name
+      - venue
+    EmailCampaignListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmailCampaign'
+      required:
+      - data
+    EmailCampaignRequest:
+      type: object
+      description: Serializer for EmailCampaign model
+      properties:
+        campaign_name:
+          type: string
+          minLength: 1
+          description: Name of the email campaign
+          maxLength: 255
+        template:
+          type: string
+          format: uuid
+          description: The email template for this campaign
+        status:
+          type: string
+          minLength: 1
+          description: Status of the email campaign (e.g., draft, published, archived)
+          maxLength: 255
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Schedule for the email campaign
+      required:
+      - campaign_name
+    EmailTemplate:
+      type: object
+      description: Serializer for EmailTemplate model
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        venue:
+          type: string
+          format: uuid
+          readOnly: true
+          description: The venue this email template belongs to
+        venue_name:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          description: Name of the email template
+          maxLength: 255
+        subject:
+          type: string
+          description: Email subject line template
+          maxLength: 255
+        template_type:
+          type: string
+          description: Type of email template (e.g., welcome, booking, reminder)
+          maxLength: 255
+        html_content:
+          type: string
+          nullable: true
+          description: HTML content of the email template
+        text_content:
+          type: string
+          nullable: true
+          description: Text content of the email template
+        is_active:
+          type: boolean
+          description: Whether the email template is active
+        status:
+          type: string
+          description: Status of the email template (e.g., draft, published, archived)
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - subject
+      - updated_at
+      - venue
+      - venue_name
+    EmailTemplateCreateRequest:
+      type: object
+      description: Serializer for creating EmailTemplate
+      properties:
+        venue:
+          type: string
+          format: uuid
+          description: The venue this email template belongs to
+        name:
+          type: string
+          minLength: 1
+          description: Name of the email template
+          maxLength: 255
+        subject:
+          type: string
+          minLength: 1
+          description: Email subject line template
+          maxLength: 255
+        template_type:
+          type: string
+          minLength: 1
+          description: Type of email template (e.g., welcome, booking, reminder)
+          maxLength: 255
+        html_content:
+          type: string
+          nullable: true
+          description: HTML content of the email template
+        text_content:
+          type: string
+          nullable: true
+          description: Text content of the email template
+        is_active:
+          type: boolean
+          description: Whether the email template is active
+        status:
+          type: string
+          minLength: 1
+          description: Status of the email template (e.g., draft, published, archived)
+          maxLength: 255
+      required:
+      - name
+      - subject
+      - venue
+    EmailTemplateRequest:
+      type: object
+      description: Serializer for EmailTemplate model
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Name of the email template
+          maxLength: 255
+        subject:
+          type: string
+          minLength: 1
+          description: Email subject line template
+          maxLength: 255
+        template_type:
+          type: string
+          minLength: 1
+          description: Type of email template (e.g., welcome, booking, reminder)
+          maxLength: 255
+        html_content:
+          type: string
+          nullable: true
+          description: HTML content of the email template
+        text_content:
+          type: string
+          nullable: true
+          description: Text content of the email template
+        is_active:
+          type: boolean
+          description: Whether the email template is active
+        status:
+          type: string
+          minLength: 1
+          description: Status of the email template (e.g., draft, published, archived)
+          maxLength: 255
+      required:
+      - name
+      - subject
+    EmailVerificationRequest:
+      type: object
+      description: Serializer for email verification
+      properties:
+        token:
+          type: string
+          minLength: 1
+      required:
+      - token
+    Feedback:
+      type: object
+      description: Serializer for Feedback model.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+          description: User who submitted the feedback (null for anonymous)
+        user_email:
+          type: string
+          readOnly: true
+        user_name:
+          type: string
+          readOnly: true
+        feedback_type:
+          allOf:
+          - $ref: '#/components/schemas/FeedbackTypeEnum'
+          description: |-
+            Type of feedback
+
+            * `bug` - Bug
+            * `feature` - Feature Request
+            * `suggestion` - Suggestion
+            * `general` - General
+        content:
+          type: string
+          description: Feedback content/description
+        page_url:
+          type: string
+          format: uri
+          description: URL of the page where feedback was submitted
+          maxLength: 500
+        metadata:
+          description: Additional metadata (device info, browser, etc.)
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content
+      - created_at
+      - id
+      - page_url
+      - updated_at
+      - user
+      - user_email
+      - user_name
+    FeedbackCreateRequest:
+      type: object
+      description: Serializer for creating feedback.
+      properties:
+        feedback_type:
+          allOf:
+          - $ref: '#/components/schemas/FeedbackTypeEnum'
+          description: |-
+            Type of feedback
+
+            * `bug` - Bug
+            * `feature` - Feature Request
+            * `suggestion` - Suggestion
+            * `general` - General
+        content:
+          type: string
+          minLength: 1
+          description: Feedback content/description
+        page_url:
+          type: string
+          format: uri
+          minLength: 1
+          description: URL of the page where feedback was submitted
+          maxLength: 500
+        metadata:
+          description: Additional metadata (device info, browser, etc.)
+      required:
+      - content
+      - page_url
+    FeedbackTypeEnum:
+      enum:
+      - bug
+      - feature
+      - suggestion
+      - general
+      type: string
+      description: |-
+        * `bug` - Bug
+        * `feature` - Feature Request
+        * `suggestion` - Suggestion
+        * `general` - General
+    Guide:
+      type: object
+      description: Serializer for Guide model
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        venue:
+          type: string
+          format: uuid
+          description: The venue this guide belongs to (one guide per venue)
+        venue_name:
+          type: string
+          readOnly: true
+        venue_description:
+          type: string
+          readOnly: true
+        venue_tagline:
+          type: string
+          readOnly: true
+        venue_logo_url:
+          type: string
+          readOnly: true
+        venue_hero_images:
+          readOnly: true
+        venue_booking_url:
+          type: string
+          readOnly: true
+        venue_website_url:
+          type: string
+          readOnly: true
+        venue_contact_email:
+          type: string
+          readOnly: true
+        venue_phone:
+          type: string
+          readOnly: true
+        venue_address:
+          type: string
+          readOnly: true
+        venue_city:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          description: Title of the guide
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          description: Detailed description of what this guide covers
+        hero_image_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to the main hero image for this guide
+          maxLength: 255
+        branding_settings:
+          nullable: true
+          description: JSON object containing branding and styling settings
+        share_token:
+          type: string
+          description: Unique token used for sharing this guide
+          maxLength: 255
+        status:
+          type: string
+          description: Current status of the guide (e.g., draft, published, archived)
+          maxLength: 255
+        is_published:
+          type: boolean
+          description: Whether the guide is published
+        collections:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - collections
+      - created_at
+      - id
+      - share_token
+      - status
+      - title
+      - updated_at
+      - venue
+      - venue_address
+      - venue_booking_url
+      - venue_city
+      - venue_contact_email
+      - venue_description
+      - venue_hero_images
+      - venue_logo_url
+      - venue_name
+      - venue_phone
+      - venue_tagline
+      - venue_website_url
+    NullEnum:
+      enum:
+      - null
+    PasswordResetRequest:
+      type: object
+      description: Serializer for password reset request
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    PatchedEmailCampaignRequest:
+      type: object
+      description: Serializer for EmailCampaign model
+      properties:
+        campaign_name:
+          type: string
+          minLength: 1
+          description: Name of the email campaign
+          maxLength: 255
+        template:
+          type: string
+          format: uuid
+          description: The email template for this campaign
+        status:
+          type: string
+          minLength: 1
+          description: Status of the email campaign (e.g., draft, published, archived)
+          maxLength: 255
+        scheduled_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Schedule for the email campaign
+    PatchedEmailTemplateRequest:
+      type: object
+      description: Serializer for EmailTemplate model
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Name of the email template
+          maxLength: 255
+        subject:
+          type: string
+          minLength: 1
+          description: Email subject line template
+          maxLength: 255
+        template_type:
+          type: string
+          minLength: 1
+          description: Type of email template (e.g., welcome, booking, reminder)
+          maxLength: 255
+        html_content:
+          type: string
+          nullable: true
+          description: HTML content of the email template
+        text_content:
+          type: string
+          nullable: true
+          description: Text content of the email template
+        is_active:
+          type: boolean
+          description: Whether the email template is active
+        status:
+          type: string
+          minLength: 1
+          description: Status of the email template (e.g., draft, published, archived)
+          maxLength: 255
+    PatchedUserProfileUpdateRequest:
+      type: object
+      description: Serializer for updating user profile
+      properties:
+        first_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        last_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          nullable: true
+          maxLength: 255
+        address:
+          type: string
+          nullable: true
+          maxLength: 255
+        city:
+          type: string
+          nullable: true
+          maxLength: 255
+        country:
+          type: string
+          nullable: true
+          maxLength: 255
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+    PatchedVenueRequest:
+      type: object
+      description: Serializer for Venue model
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: The name of the venue
+          maxLength: 255
+        slug:
+          type: string
+          nullable: true
+          description: URL-friendly version of the venue name (auto-generated from
+            name)
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        venue_type:
+          nullable: true
+          description: |-
+            Type of venue (e.g., hotel, restaurant, event space)
+
+            * `hotel` - Hotel
+            * `restaurant` - Restaurant
+            * `bar` - Bar
+            * `cafe` - Cafe
+            * `park` - Park
+            * `beach` - Beach
+            * `museum` - Museum
+            * `gift_shop` - Gift Shop
+            * `golf_course` - Golf Course
+            * `amusement_park` - Amusement Park
+            * `theme_park` - Theme Park
+            * `aquarium` - Aquarium
+            * `zoo` - Zoo
+            * `eat` - Eat
+            * `drink` - Drink
+            * `do` - Do
+            * `shop` - Shop
+            * `see` - See
+            * `other` - Other
+          oneOf:
+          - $ref: '#/components/schemas/VenueTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to the venue's logo image
+          maxLength: 255
+        hero_images:
+          nullable: true
+          description: List of hero image URLs for the venue
+        tagline:
+          type: string
+          nullable: true
+          description: Short tagline or slogan for the venue
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          description: Detailed description of the venue
+        direct_booking_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Direct URL for booking this venue
+          maxLength: 255
+        website_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Official website URL of the venue
+          maxLength: 255
+        contact_email:
+          type: string
+          format: email
+          nullable: true
+          description: Primary contact email for the venue
+          maxLength: 255
+        timezone_name:
+          type: string
+          nullable: true
+          description: Timezone name (e.g., 'America/New_York')
+          maxLength: 255
+        social_media_links:
+          nullable: true
+          description: List of social media links and handles
+        is_onboarded:
+          type: boolean
+          description: Whether the venue has completed the onboarding process
+        is_published:
+          type: boolean
+          description: Whether the venue is publicly visible and published
+        address:
+          type: string
+          nullable: true
+          description: Full address
+        city:
+          type: string
+          nullable: true
+          description: City name
+          maxLength: 255
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,7})?$
+          nullable: true
+          description: Latitude coordinate
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,7})?$
+          nullable: true
+          description: Longitude coordinate
+        phone_number:
+          type: string
+          nullable: true
+          description: Phone number
+          maxLength: 50
+        google_place_id:
+          type: string
+          nullable: true
+          description: Google Places API place_id
+          maxLength: 255
+        google_rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+          nullable: true
+          description: Google Places rating
+        google_price_level:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          description: Google Places price level (0-4)
+        google_photo_references:
+          description: Google Places photo references
+        google_maps_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Google Maps URL
+          maxLength: 500
+        google_business_status:
+          type: string
+          nullable: true
+          description: Google Places business status (OPERATIONAL, CLOSED_TEMPORARILY,
+            etc.)
+          maxLength: 50
+        is_external:
+          type: boolean
+          description: Whether this venue was created from external source (Google
+            Places)
+    PublicUserProfile:
+      type: object
+      description: Serializer for public user profile data
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+          nullable: true
+        last_name:
+          type: string
+          readOnly: true
+          nullable: true
+        profile_picture:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        city:
+          type: string
+          readOnly: true
+          nullable: true
+        country:
+          type: string
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - city
+      - country
+      - created_at
+      - first_name
+      - id
+      - last_name
+      - profile_picture
+    PublicUserProfileResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PublicUserProfile'
+      required:
+      - data
+    ReferralAnalytics:
+      type: object
+      description: Serializer for referral analytics data
+      properties:
+        total_shares:
+          type: integer
+        total_clicks:
+          type: integer
+        total_conversions:
+          type: integer
+        click_through_rate:
+          type: number
+          format: double
+        conversion_rate:
+          type: number
+          format: double
+        shares_by_content_type:
+          type: object
+          additionalProperties: {}
+        clicks_by_content_type:
+          type: object
+          additionalProperties: {}
+        recent_shares:
+          type: integer
+        recent_clicks:
+          type: integer
+        shares_trend:
+          type: object
+          additionalProperties: {}
+        clicks_trend:
+          type: object
+          additionalProperties: {}
+      required:
+      - click_through_rate
+      - clicks_by_content_type
+      - clicks_trend
+      - conversion_rate
+      - recent_clicks
+      - recent_shares
+      - shares_by_content_type
+      - shares_trend
+      - total_clicks
+      - total_conversions
+      - total_shares
+    ReferralConversion:
+      type: object
+      description: Serializer for ReferralConversion model with all operations.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        link:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Which link led to conversion (primary attribution)
+        user:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Who converted
+        user_name:
+          type: string
+          readOnly: true
+        venue:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Venue that received the booking
+        venue_name:
+          type: string
+          readOnly: true
+        conversion_type:
+          allOf:
+          - $ref: '#/components/schemas/ConversionTypeEnum'
+          description: |-
+            Type of conversion
+
+            * `booking` - Booking
+            * `inquiry` - Inquiry
+            * `signup` - Signup
+            * `stamp` - Stamp
+        conversion_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          description: Monetary value of conversion
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency of conversion value
+
+            * `USD` - US Dollar
+            * `EUR` - Euro
+            * `GBP` - British Pound
+            * `CAD` - Canadian Dollar
+            * `AUD` - Australian Dollar
+        external_reference:
+          type: string
+          nullable: true
+          description: External booking reference, etc.
+          maxLength: 100
+        conversion_metadata:
+          description: Booking platform, details, etc.
+        converted_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the conversion occurred
+        has_value:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - conversion_type
+      - converted_at
+      - created_at
+      - has_value
+      - id
+      - link
+      - updated_at
+      - user
+      - user_name
+      - venue
+      - venue_name
+    ReferralConversionListResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReferralConversion'
+      required:
+      - results
+    ReferralConversionRequest:
+      type: object
+      description: Serializer for ReferralConversion model with all operations.
+      properties:
+        link_id:
+          type: string
+          format: uuid
+          writeOnly: true
+        conversion_type:
+          allOf:
+          - $ref: '#/components/schemas/ConversionTypeEnum'
+          description: |-
+            Type of conversion
+
+            * `booking` - Booking
+            * `inquiry` - Inquiry
+            * `signup` - Signup
+            * `stamp` - Stamp
+        conversion_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          description: Monetary value of conversion
+        currency:
+          allOf:
+          - $ref: '#/components/schemas/CurrencyEnum'
+          description: |-
+            Currency of conversion value
+
+            * `USD` - US Dollar
+            * `EUR` - Euro
+            * `GBP` - British Pound
+            * `CAD` - Canadian Dollar
+            * `AUD` - Australian Dollar
+        external_reference:
+          type: string
+          nullable: true
+          description: External booking reference, etc.
+          maxLength: 100
+        conversion_metadata:
+          description: Booking platform, details, etc.
+      required:
+      - conversion_type
+    ReferralLink:
+      type: object
+      description: Serializer for ReferralLink model with all operations.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sharer_user:
+          type: string
+          format: uuid
+          readOnly: true
+          description: User who created the share
+        sharer_name:
+          type: string
+          readOnly: true
+        content_type_name:
+          type: string
+          readOnly: true
+        object_id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: ID of the content object
+        share_token:
+          type: string
+          readOnly: true
+          description: Unique shareable token
+        share_url:
+          type: string
+          readOnly: true
+          description: Full shareable URL
+        share_method:
+          allOf:
+          - $ref: '#/components/schemas/ShareMethodEnum'
+          description: |-
+            How the content was shared
+
+            * `email` - Email
+            * `sms` - SMS
+            * `social` - Social Media
+            * `direct` - Direct
+        share_context:
+          description: Message, platform, UTM params
+        parent_link:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+          description: Self-referencing for chains
+        chain_depth:
+          type: integer
+          readOnly: true
+          description: 0=original, 1=first reshare, etc.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          description: |-
+            Status of the referral link
+
+            * `active` - Active
+            * `expired` - Expired
+            * `disabled` - Disabled
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the link expires
+        is_expired:
+          type: boolean
+          readOnly: true
+        attribution_chain:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - attribution_chain
+      - chain_depth
+      - content_type_name
+      - created_at
+      - id
+      - is_expired
+      - object_id
+      - parent_link
+      - share_method
+      - share_token
+      - share_url
+      - sharer_name
+      - sharer_user
+      - updated_at
+    ReferralLinkContentTypeEnum:
+      enum:
+      - guide
+      - collection
+      - venue
+      type: string
+      description: |-
+        * `guide` - guide
+        * `collection` - collection
+        * `venue` - venue
+    ReferralLinkListResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReferralLink'
+      required:
+      - results
+    ReferralLinkRequest:
+      type: object
+      description: Serializer for ReferralLink model with all operations.
+      properties:
+        content_type:
+          allOf:
+          - $ref: '#/components/schemas/ReferralLinkContentTypeEnum'
+          writeOnly: true
+        share_method:
+          allOf:
+          - $ref: '#/components/schemas/ShareMethodEnum'
+          description: |-
+            How the content was shared
+
+            * `email` - Email
+            * `sms` - SMS
+            * `social` - Social Media
+            * `direct` - Direct
+        share_context:
+          description: Message, platform, UTM params
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          description: |-
+            Status of the referral link
+
+            * `active` - Active
+            * `expired` - Expired
+            * `disabled` - Disabled
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the link expires
+        content_id:
+          type: string
+          format: uuid
+          writeOnly: true
+        parent_link_id:
+          type: string
+          format: uuid
+          writeOnly: true
+          nullable: true
+      required:
+      - share_method
+    RoleEnum:
+      enum:
+      - admin
+      - manager
+      - staff
+      type: string
+      description: |-
+        * `admin` - Admin
+        * `manager` - Manager
+        * `staff` - Staff
+    SavedItemCreateRequest:
+      type: object
+      description: Serializer for creating saved items.
+      properties:
+        content_type:
+          allOf:
+          - $ref: '#/components/schemas/ContentTypeF84Enum'
+          description: |-
+            Type of content being saved
+
+            * `guide` - Guide
+            * `collection` - Collection
+            * `venue` - Venue
+        content_id:
+          type: string
+          minLength: 1
+          description: ID of the content object (UUID for most types, Google Places
+            ID for venues)
+          maxLength: 255
+        notes:
+          type: string
+          description: Personal notes about why they saved it
+        tags:
+          description: User-defined tags for organization
+      required:
+      - content_id
+      - content_type
+    SavedItemRequest:
+      type: object
+      description: Serializer for SavedItem model with content object details.
+      properties:
+        content_type:
+          allOf:
+          - $ref: '#/components/schemas/ContentTypeF84Enum'
+          description: |-
+            Type of content being saved
+
+            * `guide` - Guide
+            * `collection` - Collection
+            * `venue` - Venue
+        content_id:
+          type: string
+          minLength: 1
+          description: ID of the content object (UUID for most types, Google Places
+            ID for venues)
+          maxLength: 255
+        notes:
+          type: string
+          description: Personal notes about why they saved it
+        tags:
+          description: User-defined tags for organization
+      required:
+      - content_id
+      - content_type
+    ShareMethodEnum:
+      enum:
+      - email
+      - sms
+      - social
+      - direct
+      type: string
+      description: |-
+        * `email` - Email
+        * `sms` - SMS
+        * `social` - Social Media
+        * `direct` - Direct
+    StatusEnum:
+      enum:
+      - active
+      - expired
+      - disabled
+      type: string
+      description: |-
+        * `active` - Active
+        * `expired` - Expired
+        * `disabled` - Disabled
+    TimePeriod:
+      type: object
+      description: Serializer for time period information
+      properties:
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        period_days:
+          type: integer
+      required:
+      - end_date
+      - period_days
+      - start_date
+    User:
+      type: object
+      description: Serializer for user data (read-only)
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        auth_provider:
+          allOf:
+          - $ref: '#/components/schemas/AuthProviderEnum'
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        first_name:
+          type: string
+          readOnly: true
+          nullable: true
+        last_name:
+          type: string
+          readOnly: true
+          nullable: true
+        phone:
+          type: string
+          readOnly: true
+          nullable: true
+        profile_picture:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        address:
+          type: string
+          readOnly: true
+          nullable: true
+        city:
+          type: string
+          readOnly: true
+          nullable: true
+        country:
+          type: string
+          readOnly: true
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        is_verified:
+          type: boolean
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+          description: Designates whether this user account should be treated as active.
+        is_phone_verified:
+          type: boolean
+          readOnly: true
+        is_staff:
+          type: boolean
+          readOnly: true
+          description: Designates whether the user can log into this admin site.
+        is_superuser:
+          type: boolean
+          readOnly: true
+        last_login:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: Last login timestamp
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        metadata:
+          readOnly: true
+          description: Additional user metadata and preferences
+        terms_consent:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: User has accepted Terms of Service
+        privacy_consent:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: User has accepted Privacy Policy
+      required:
+      - address
+      - auth_provider
+      - city
+      - country
+      - created_at
+      - date_of_birth
+      - email
+      - first_name
+      - id
+      - is_active
+      - is_phone_verified
+      - is_staff
+      - is_superuser
+      - is_verified
+      - last_login
+      - last_name
+      - metadata
+      - phone
+      - privacy_consent
+      - profile_picture
+      - terms_consent
+      - updated_at
+    UserAnalyticsData:
+      type: object
+      description: Serializer for user analytics response data
+      properties:
+        user_info:
+          $ref: '#/components/schemas/UserInfo'
+        referral_analytics:
+          $ref: '#/components/schemas/ReferralAnalytics'
+        time_period:
+          $ref: '#/components/schemas/TimePeriod'
+      required:
+      - referral_analytics
+      - time_period
+      - user_info
+    UserAnalyticsResponse:
+      type: object
+      description: Serializer for user analytics API response
+      properties:
+        message:
+          type: string
+        data:
+          $ref: '#/components/schemas/UserAnalyticsData'
+        errors:
+          type: array
+          items:
+            type: string
+      required:
+      - data
+      - errors
+      - message
+    UserGuide:
+      type: object
+      properties:
+        guides:
+          type: array
+          items:
+            $ref: '#/components/schemas/Guide'
+      required:
+      - guides
+    UserInfo:
+      type: object
+      description: Serializer for user info in analytics response
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+      required:
+      - email
+      - first_name
+      - id
+      - last_name
+    UserLoginRequest:
+      type: object
+      description: Serializer for user login
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    UserProfileUpdateResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+      required:
+      - data
+    UserRegistrationRequest:
+      type: object
+      description: Serializer for user registration
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+        first_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        last_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          nullable: true
+          maxLength: 255
+        city:
+          type: string
+          nullable: true
+          maxLength: 255
+        country:
+          type: string
+          nullable: true
+          maxLength: 255
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        auth_provider:
+          $ref: '#/components/schemas/AuthProviderEnum'
+        venue_id:
+          type: string
+          format: uuid
+          writeOnly: true
+          nullable: true
+      required:
+      - auth_provider
+      - email
+      - password
+      - password_confirm
+    UserVenues:
+      type: object
+      properties:
+        venues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Venue'
+      required:
+      - venues
+    Venue:
+      type: object
+      description: Serializer for Venue model
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          description: The name of the venue
+          maxLength: 255
+        slug:
+          type: string
+          nullable: true
+          description: URL-friendly version of the venue name (auto-generated from
+            name)
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        venue_type:
+          nullable: true
+          description: |-
+            Type of venue (e.g., hotel, restaurant, event space)
+
+            * `hotel` - Hotel
+            * `restaurant` - Restaurant
+            * `bar` - Bar
+            * `cafe` - Cafe
+            * `park` - Park
+            * `beach` - Beach
+            * `museum` - Museum
+            * `gift_shop` - Gift Shop
+            * `golf_course` - Golf Course
+            * `amusement_park` - Amusement Park
+            * `theme_park` - Theme Park
+            * `aquarium` - Aquarium
+            * `zoo` - Zoo
+            * `eat` - Eat
+            * `drink` - Drink
+            * `do` - Do
+            * `shop` - Shop
+            * `see` - See
+            * `other` - Other
+          oneOf:
+          - $ref: '#/components/schemas/VenueTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to the venue's logo image
+          maxLength: 255
+        hero_images:
+          nullable: true
+          description: List of hero image URLs for the venue
+        tagline:
+          type: string
+          nullable: true
+          description: Short tagline or slogan for the venue
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          description: Detailed description of the venue
+        direct_booking_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Direct URL for booking this venue
+          maxLength: 255
+        website_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Official website URL of the venue
+          maxLength: 255
+        contact_email:
+          type: string
+          format: email
+          nullable: true
+          description: Primary contact email for the venue
+          maxLength: 255
+        timezone_name:
+          type: string
+          nullable: true
+          description: Timezone name (e.g., 'America/New_York')
+          maxLength: 255
+        social_media_links:
+          nullable: true
+          description: List of social media links and handles
+        is_onboarded:
+          type: boolean
+          description: Whether the venue has completed the onboarding process
+        is_published:
+          type: boolean
+          description: Whether the venue is publicly visible and published
+        address:
+          type: string
+          nullable: true
+          description: Full address
+        city:
+          type: string
+          nullable: true
+          description: City name
+          maxLength: 255
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,7})?$
+          nullable: true
+          description: Latitude coordinate
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,7})?$
+          nullable: true
+          description: Longitude coordinate
+        phone_number:
+          type: string
+          nullable: true
+          description: Phone number
+          maxLength: 50
+        google_place_id:
+          type: string
+          nullable: true
+          description: Google Places API place_id
+          maxLength: 255
+        google_rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+          nullable: true
+          description: Google Places rating
+        google_price_level:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          description: Google Places price level (0-4)
+        google_photo_references:
+          description: Google Places photo references
+        google_maps_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Google Maps URL
+          maxLength: 500
+        google_business_status:
+          type: string
+          nullable: true
+          description: Google Places business status (OPERATIONAL, CLOSED_TEMPORARILY,
+            etc.)
+          maxLength: 50
+        is_external:
+          type: boolean
+          description: Whether this venue was created from external source (Google
+            Places)
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - name
+      - updated_at
+    VenueAnalytics:
+      type: object
+      description: Serializer for VenueAnalytics model.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        venue_id:
+          type: string
+          format: uuid
+          readOnly: true
+        venue_name:
+          type: string
+          readOnly: true
+        analytics_data:
+          $ref: '#/components/schemas/VenueAnalyticsData'
+        last_updated:
+          type: string
+          format: date-time
+          readOnly: true
+        version:
+          type: integer
+          readOnly: true
+          description: Version of analytics schema
+        last_aggregated:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+          description: Last time raw events were aggregated
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - analytics_data
+      - created_at
+      - id
+      - last_aggregated
+      - last_updated
+      - updated_at
+      - venue_id
+      - venue_name
+      - version
+    VenueAnalyticsData:
+      type: object
+      description: Serializer for the JSON analytics data structure.
+      properties:
+        views:
+          type: object
+          additionalProperties: {}
+        collections:
+          type: object
+          additionalProperties: {}
+        guides:
+          type: object
+          additionalProperties: {}
+        searches:
+          type: object
+          additionalProperties: {}
+        places:
+          type: object
+          additionalProperties: {}
+        referrals:
+          type: object
+          additionalProperties: {}
+        engagement:
+          type: object
+          additionalProperties: {}
+        performance:
+          type: object
+          additionalProperties: {}
+        time_periods:
+          type: object
+          additionalProperties: {}
+        metadata:
+          type: object
+          additionalProperties: {}
+    VenueAnalyticsResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/AnalyticsData'
+      required:
+      - data
+    VenueCreateRequest:
+      type: object
+      description: Serializer for creating Venue
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: The name of the venue
+          maxLength: 255
+        slug:
+          type: string
+          nullable: true
+          description: URL-friendly version of the venue name (auto-generated from
+            name)
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        venue_type:
+          nullable: true
+          description: |-
+            Type of venue (e.g., hotel, restaurant, event space)
+
+            * `hotel` - Hotel
+            * `restaurant` - Restaurant
+            * `bar` - Bar
+            * `cafe` - Cafe
+            * `park` - Park
+            * `beach` - Beach
+            * `museum` - Museum
+            * `gift_shop` - Gift Shop
+            * `golf_course` - Golf Course
+            * `amusement_park` - Amusement Park
+            * `theme_park` - Theme Park
+            * `aquarium` - Aquarium
+            * `zoo` - Zoo
+            * `eat` - Eat
+            * `drink` - Drink
+            * `do` - Do
+            * `shop` - Shop
+            * `see` - See
+            * `other` - Other
+          oneOf:
+          - $ref: '#/components/schemas/VenueTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to the venue's logo image
+          maxLength: 255
+        hero_images:
+          nullable: true
+          description: List of hero image URLs for the venue
+        tagline:
+          type: string
+          nullable: true
+          description: Short tagline or slogan for the venue
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          description: Detailed description of the venue
+        direct_booking_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Direct URL for booking this venue
+          maxLength: 255
+        website_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Official website URL of the venue
+          maxLength: 255
+        contact_email:
+          type: string
+          format: email
+          nullable: true
+          description: Primary contact email for the venue
+          maxLength: 255
+        timezone_name:
+          type: string
+          nullable: true
+          description: Timezone name (e.g., 'America/New_York')
+          maxLength: 255
+        social_media_links:
+          nullable: true
+          description: List of social media links and handles
+      required:
+      - name
+    VenueGuideRequest:
+      type: object
+      description: Serializer for venue guide operations - venue is automatically
+        set from user's venue
+      properties:
+        title:
+          type: string
+          minLength: 1
+          description: Title of the guide
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          description: Detailed description of what this guide covers
+        hero_image_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to the main hero image for this guide
+          maxLength: 255
+        branding_settings:
+          nullable: true
+          description: JSON object containing branding and styling settings
+        status:
+          type: string
+          minLength: 1
+          description: Current status of the guide (e.g., draft, published, archived)
+          maxLength: 255
+        is_published:
+          type: boolean
+          description: Whether the guide is published
+      required:
+      - status
+      - title
+    VenueListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Venue'
+      required:
+      - data
+    VenueRequest:
+      type: object
+      description: Serializer for Venue model
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: The name of the venue
+          maxLength: 255
+        slug:
+          type: string
+          nullable: true
+          description: URL-friendly version of the venue name (auto-generated from
+            name)
+          maxLength: 50
+          pattern: ^[-a-zA-Z0-9_]+$
+        venue_type:
+          nullable: true
+          description: |-
+            Type of venue (e.g., hotel, restaurant, event space)
+
+            * `hotel` - Hotel
+            * `restaurant` - Restaurant
+            * `bar` - Bar
+            * `cafe` - Cafe
+            * `park` - Park
+            * `beach` - Beach
+            * `museum` - Museum
+            * `gift_shop` - Gift Shop
+            * `golf_course` - Golf Course
+            * `amusement_park` - Amusement Park
+            * `theme_park` - Theme Park
+            * `aquarium` - Aquarium
+            * `zoo` - Zoo
+            * `eat` - Eat
+            * `drink` - Drink
+            * `do` - Do
+            * `shop` - Shop
+            * `see` - See
+            * `other` - Other
+          oneOf:
+          - $ref: '#/components/schemas/VenueTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to the venue's logo image
+          maxLength: 255
+        hero_images:
+          nullable: true
+          description: List of hero image URLs for the venue
+        tagline:
+          type: string
+          nullable: true
+          description: Short tagline or slogan for the venue
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          description: Detailed description of the venue
+        direct_booking_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Direct URL for booking this venue
+          maxLength: 255
+        website_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Official website URL of the venue
+          maxLength: 255
+        contact_email:
+          type: string
+          format: email
+          nullable: true
+          description: Primary contact email for the venue
+          maxLength: 255
+        timezone_name:
+          type: string
+          nullable: true
+          description: Timezone name (e.g., 'America/New_York')
+          maxLength: 255
+        social_media_links:
+          nullable: true
+          description: List of social media links and handles
+        is_onboarded:
+          type: boolean
+          description: Whether the venue has completed the onboarding process
+        is_published:
+          type: boolean
+          description: Whether the venue is publicly visible and published
+        address:
+          type: string
+          nullable: true
+          description: Full address
+        city:
+          type: string
+          nullable: true
+          description: City name
+          maxLength: 255
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,7})?$
+          nullable: true
+          description: Latitude coordinate
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,7})?$
+          nullable: true
+          description: Longitude coordinate
+        phone_number:
+          type: string
+          nullable: true
+          description: Phone number
+          maxLength: 50
+        google_place_id:
+          type: string
+          nullable: true
+          description: Google Places API place_id
+          maxLength: 255
+        google_rating:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,2})?$
+          nullable: true
+          description: Google Places rating
+        google_price_level:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          description: Google Places price level (0-4)
+        google_photo_references:
+          description: Google Places photo references
+        google_maps_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Google Maps URL
+          maxLength: 500
+        google_business_status:
+          type: string
+          nullable: true
+          description: Google Places business status (OPERATIONAL, CLOSED_TEMPORARILY,
+            etc.)
+          maxLength: 50
+        is_external:
+          type: boolean
+          description: Whether this venue was created from external source (Google
+            Places)
+      required:
+      - name
+    VenueTypeEnum:
+      enum:
+      - hotel
+      - restaurant
+      - bar
+      - cafe
+      - park
+      - beach
+      - museum
+      - gift_shop
+      - golf_course
+      - amusement_park
+      - theme_park
+      - aquarium
+      - zoo
+      - eat
+      - drink
+      - do
+      - shop
+      - see
+      - other
+      type: string
+      description: |-
+        * `hotel` - Hotel
+        * `restaurant` - Restaurant
+        * `bar` - Bar
+        * `cafe` - Cafe
+        * `park` - Park
+        * `beach` - Beach
+        * `museum` - Museum
+        * `gift_shop` - Gift Shop
+        * `golf_course` - Golf Course
+        * `amusement_park` - Amusement Park
+        * `theme_park` - Theme Park
+        * `aquarium` - Aquarium
+        * `zoo` - Zoo
+        * `eat` - Eat
+        * `drink` - Drink
+        * `do` - Do
+        * `shop` - Shop
+        * `see` - See
+        * `other` - Other
+    VenueUser:
+      type: object
+      description: Serializer for VenueUser model
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        venue:
+          type: string
+          format: uuid
+          description: The venue this user belongs to
+        user:
+          type: string
+          format: uuid
+          description: The user associated with this venue
+        user_email:
+          type: string
+          format: email
+          readOnly: true
+        user_name:
+          type: string
+          readOnly: true
+        venue_name:
+          type: string
+          readOnly: true
+        role:
+          type: string
+          description: User's role at this venue (e.g., admin, manager, staff)
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - updated_at
+      - user
+      - user_email
+      - user_name
+      - venue
+      - venue_name
+    VenueUserCreateRequest:
+      type: object
+      description: Serializer for creating venue users by venue admins
+      properties:
+        email:
+          type: string
+          format: email
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+        first_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        last_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          nullable: true
+          maxLength: 255
+        role:
+          allOf:
+          - $ref: '#/components/schemas/RoleEnum'
+          default: staff
+      required:
+      - email
+      - password
+      - password_confirm
+    VenueUserDashboardResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/DashboardData'
+      required:
+      - data
+    VenueUserDashboardUpdateResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/DashboardData'
+      required:
+      - data
+    VenueUserRequest:
+      type: object
+      description: Serializer for VenueUser model
+      properties:
+        venue:
+          type: string
+          format: uuid
+          description: The venue this user belongs to
+        user:
+          type: string
+          format: uuid
+          description: The user associated with this venue
+        role:
+          type: string
+          minLength: 1
+          description: User's role at this venue (e.g., admin, manager, staff)
+          maxLength: 255
+      required:
+      - user
+      - venue
+    VenueUserResponse:
+      type: object
+      description: Serializer for venue user response data
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+          readOnly: true
+          description: The user associated with this venue
+        user_email:
+          type: string
+          format: email
+          readOnly: true
+        user_name:
+          type: string
+          readOnly: true
+        venue_name:
+          type: string
+          readOnly: true
+        role:
+          type: string
+          readOnly: true
+          description: User's role at this venue (e.g., admin, manager, staff)
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - role
+      - updated_at
+      - user
+      - user_email
+      - user_name
+      - venue_name
+    VenueUserUpdateRequest:
+      type: object
+      description: Serializer for updating venue user permissions and password
+      properties:
+        first_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        last_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 255
+        phone:
+          type: string
+          nullable: true
+          maxLength: 255
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: stamp_sessionid
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+servers:
+- url: /
+  description: Local Development server
+tags:
+- name: Authentication
+  description: Authentication endpoints
+- name: Accounts
+  description: Account management endpoints
+- name: Core
+  description: Core application endpoints
+- name: Venues
+  description: Venue management endpoints

@@ -736,6 +736,85 @@ class Database:
             })
         return results
     
+    def get_ai_test_cases_by_status(self, status: str, schema_file: Optional[str] = None,
+                                    limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get AI test cases by validation status
+        
+        Args:
+            status: Validation status ('pending', 'approved', 'rejected', 'needs_improvement')
+            schema_file: Optional schema file to filter by
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of test case dictionaries
+        """
+        cursor = self.conn.cursor()
+        query = "SELECT * FROM ai_test_cases WHERE validation_status = ?"
+        params = [status]
+        
+        if schema_file:
+            query += " AND schema_file = ?"
+            params.append(schema_file)
+        
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            results.append({
+                'id': row['id'],
+                'schema_file': row['schema_file'],
+                'method': row['method'],
+                'path': row['path'],
+                'test_case_json': json.loads(row['test_case_json']),
+                'validation_status': row['validation_status'],
+                'created_at': row['created_at'],
+                'version': row['version']
+            })
+        return results
+    
+    def get_all_ai_test_cases(self, schema_file: Optional[str] = None,
+                              limit: int = 1000) -> List[Dict[str, Any]]:
+        """
+        Get all AI test cases (regardless of status)
+        
+        Args:
+            schema_file: Optional schema file to filter by
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of test case dictionaries
+        """
+        cursor = self.conn.cursor()
+        query = "SELECT * FROM ai_test_cases"
+        params = []
+        
+        if schema_file:
+            query += " WHERE schema_file = ?"
+            params.append(schema_file)
+        
+        query += " ORDER BY schema_file, method, path, created_at DESC LIMIT ?"
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            results.append({
+                'id': row['id'],
+                'schema_file': row['schema_file'],
+                'method': row['method'],
+                'path': row['path'],
+                'test_case_json': json.loads(row['test_case_json']),
+                'validation_status': row['validation_status'],
+                'created_at': row['created_at'],
+                'version': row['version']
+            })
+        return results
+    
     def update_ai_test_case_validation_status(self, test_case_id: int,
                                               status: str) -> None:
         """Update validation status of an AI test case"""
@@ -1184,6 +1263,16 @@ class AITestsNamespace:
                                  limit: int = 100) -> List[Dict[str, Any]]:
         """Get validated (approved) AI test cases"""
         return self._db.get_validated_ai_test_cases(schema_file, limit)
+    
+    def get_test_cases_by_status(self, status: str, schema_file: Optional[str] = None,
+                                 limit: int = 100) -> List[Dict[str, Any]]:
+        """Get AI test cases by validation status"""
+        return self._db.get_ai_test_cases_by_status(status, schema_file, limit)
+    
+    def get_all_test_cases(self, schema_file: Optional[str] = None,
+                           limit: int = 1000) -> List[Dict[str, Any]]:
+        """Get all AI test cases (regardless of status)"""
+        return self._db.get_all_ai_test_cases(schema_file, limit)
     
     def update_validation_status(self, test_case_id: int, status: str) -> None:
         """Update validation status of an AI test case"""

@@ -8,7 +8,7 @@ and validating the structure.
 import json
 import re
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +27,14 @@ class ResponseParser:
         """Initialize response parser"""
         pass
     
-    def parse_test_cases(self, ai_response: str) -> List[Dict[str, Any]]:
+    def parse_test_cases(self, ai_response: str, endpoint_mapping: Optional[Dict[str, Tuple[str, str]]] = None) -> List[Dict[str, Any]]:
         """
         Parse AI response and extract test cases
         
         Args:
             ai_response: Raw response string from AI model
+            endpoint_mapping: Optional dict mapping "METHOD /path" to (method, path) tuple
+                            for batch responses
             
         Returns:
             List of test case dictionaries
@@ -47,24 +49,28 @@ class ResponseParser:
         # Strategy 1: Try to extract JSON from markdown code blocks
         json_str = self._extract_json_from_markdown(ai_response)
         if json_str:
-            test_cases = self._parse_json_response(json_str)
+            test_cases = self._parse_json_response(json_str, endpoint_mapping)
             if test_cases:
                 return test_cases
         
         # Strategy 2: Try to parse entire response as JSON
-        test_cases = self._parse_json_response(ai_response)
+        test_cases = self._parse_json_response(ai_response, endpoint_mapping)
         if test_cases:
             return test_cases
         
         # Strategy 3: Try to find JSON object in text
         json_str = self._extract_json_from_text(ai_response)
         if json_str:
-            test_cases = self._parse_json_response(json_str)
+            test_cases = self._parse_json_response(json_str, endpoint_mapping)
             if test_cases:
                 return test_cases
         
         # If all strategies fail, log warning and return empty list
         logger.warning("Could not parse AI response as valid test cases")
+        # Log first 500 chars of response for debugging
+        if ai_response:
+            preview = ai_response[:500] if len(ai_response) > 500 else ai_response
+            logger.debug(f"AI response preview (first 500 chars): {preview}")
         return []
     
     def _extract_json_from_markdown(self, text: str) -> Optional[str]:
@@ -126,16 +132,37 @@ class ResponseParser:
                         json.loads(json_str)
                         return json_str
                     except json.JSONDecodeError:
-                        return None
+                        # Try to find the largest valid JSON object
+                        # Look for nested structures
+                        continue
+        
+        # If we didn't find a complete JSON object, try to extract the largest valid one
+        # by trying from different starting points
+        for start in range(len(text)):
+            if text[start] == '{':
+                brace_count = 0
+                for i in range(start, len(text)):
+                    if text[i] == '{':
+                        brace_count += 1
+                    elif text[i] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            json_str = text[start:i+1]
+                            try:
+                                json.loads(json_str)
+                                return json_str
+                            except json.JSONDecodeError:
+                                break
         
         return None
     
-    def _parse_json_response(self, json_str: str) -> List[Dict[str, Any]]:
+    def _parse_json_response(self, json_str: str, endpoint_mapping: Optional[Dict[str, Tuple[str, str]]] = None) -> List[Dict[str, Any]]:
         """
         Parse JSON string and extract test cases
         
         Args:
             json_str: JSON string to parse
+            endpoint_mapping: Optional dict mapping "METHOD /path" to (method, path) tuple
             
         Returns:
             List of test case dictionaries
@@ -155,19 +182,19 @@ class ResponseParser:
             if isinstance(test_cases_list, list):
                 for test_case in test_cases_list:
                     if self._validate_test_case(test_case):
-                        normalized = self._normalize_test_case(test_case)
+                        normalized = self._normalize_test_case(test_case, endpoint_mapping)
                         test_cases.append(normalized)
         
         # Format 2: Single test case object { "test_scenario": ..., "request_body": ..., ... }
         elif isinstance(data, dict) and self._validate_test_case(data):
-            normalized = self._normalize_test_case(data)
+            normalized = self._normalize_test_case(data, endpoint_mapping)
             test_cases.append(normalized)
         
         # Format 3: Array of test cases [...]
         elif isinstance(data, list):
             for test_case in data:
                 if isinstance(test_case, dict) and self._validate_test_case(test_case):
-                    normalized = self._normalize_test_case(test_case)
+                    normalized = self._normalize_test_case(test_case, endpoint_mapping)
                     test_cases.append(normalized)
         
         return test_cases
@@ -191,6 +218,7 @@ class ResponseParser:
         has_response = 'expected_response' in test_case
         
         # At minimum, should have either scenario or both request and response
+        # Also accept if it has just a scenario (for GET requests without body)
         if not has_scenario and not (has_request or has_response):
             logger.debug("Test case missing required fields: test_scenario or request_body/expected_response")
             return False
@@ -206,15 +234,16 @@ class ResponseParser:
         
         return True
     
-    def _normalize_test_case(self, test_case: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_test_case(self, test_case: Dict[str, Any], endpoint_mapping: Optional[Dict[str, Tuple[str, str]]] = None) -> Dict[str, Any]:
         """
         Normalize test case to standard format
         
         Args:
             test_case: Test case dictionary to normalize
+            endpoint_mapping: Optional dict mapping "METHOD /path" to (method, path) tuple
             
         Returns:
-            Normalized test case dictionary
+            Normalized test case dictionary with method and path if from batch response
         """
         normalized = {
             'test_scenario': test_case.get('test_scenario', 'Generated test case'),
@@ -222,6 +251,14 @@ class ResponseParser:
             'expected_response': test_case.get('expected_response', {}),
             'rationale': test_case.get('rationale')
         }
+        
+        # Handle batch response format - extract method and path from endpoint field
+        if 'endpoint' in test_case and endpoint_mapping:
+            endpoint_key = test_case['endpoint']
+            if endpoint_key in endpoint_mapping:
+                method, path = endpoint_mapping[endpoint_key]
+                normalized['method'] = method
+                normalized['path'] = path
         
         # Ensure expected_response has status_code
         if 'expected_response' in test_case:
