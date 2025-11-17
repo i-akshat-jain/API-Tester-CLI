@@ -17,6 +17,7 @@ from apitest.ai.validation import (
 )
 from apitest.ai.feedback_analyzer import FeedbackAnalyzer
 from apitest.ai.prompt_refiner import PromptRefiner, PromptUpdate
+from apitest.ai.learning_engine import LearningEngine
 
 __all__ = [
     'GroqClient', 'GroqAPIError', 'GroqRateLimitError', 'GroqAuthenticationError', 'GroqResponse',
@@ -28,6 +29,7 @@ __all__ = [
     'VALIDATION_STATUS_PENDING', 'VALIDATION_STATUS_APPROVED',
     'VALIDATION_STATUS_REJECTED', 'VALIDATION_STATUS_NEEDS_IMPROVEMENT',
     'FeedbackAnalyzer',
-    'PromptRefiner', 'PromptUpdate'
+    'PromptRefiner', 'PromptUpdate',
+    'LearningEngine'
 ]
 

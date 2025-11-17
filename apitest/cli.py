@@ -906,6 +906,103 @@ def validate_ai_tests(test_case_id: tuple, schema_file: Optional[str], all_pendi
         sys.exit(1)
 
 
+@cli_group.command('learn-from-feedback')
+@click.option('--force', is_flag=True, help='Force learning cycle even if minimum feedback threshold not met')
+@click.option('--schema-file', type=str, help='Focus learning on specific schema file')
+@click.option('--stats', is_flag=True, help='Show learning statistics and exit')
+def learn_from_feedback(force: bool, schema_file: Optional[str], stats: bool):
+    """
+    Run learning cycle to improve AI test generation based on feedback
+    
+    Analyzes validation feedback, extracts patterns, refines prompts, and saves
+    approved test cases to the library.
+    
+    Examples:
+    
+        apitest learn-from-feedback              # Run learning cycle
+        apitest learn-from-feedback --force      # Force run even with little feedback
+        apitest learn-from-feedback --stats      # Show learning statistics
+    """
+    from apitest.storage.database import Storage
+    from apitest.ai.learning_engine import LearningEngine
+    
+    console = Console()
+    
+    try:
+        storage = Storage()
+        engine = LearningEngine(storage)
+        
+        if stats:
+            # Show statistics
+            stats_data = engine.get_learning_stats()
+            
+            table = Table(title="Learning System Statistics")
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="green")
+            
+            table.add_row("Total Feedback", str(stats_data['total_feedback']))
+            table.add_row("Patterns Stored", str(stats_data['patterns_stored']))
+            table.add_row("Test Cases in Library", str(stats_data['test_cases_in_library']))
+            table.add_row("Can Run Learning Cycle", "Yes" if stats_data['can_run_learning_cycle'] else "No")
+            
+            console.print(table)
+            
+            # Show feedback breakdown
+            if stats_data['feedback_by_status']:
+                feedback_table = Table(title="Feedback by Status")
+                feedback_table.add_column("Status", style="cyan")
+                feedback_table.add_column("Count", style="green")
+                
+                for status, count in stats_data['feedback_by_status'].items():
+                    feedback_table.add_row(status, str(count))
+                
+                console.print(feedback_table)
+            
+            # Show prompt versions
+            if stats_data['prompt_versions']:
+                prompt_table = Table(title="Prompt Versions")
+                prompt_table.add_column("Prompt Name", style="cyan")
+                prompt_table.add_column("Versions", style="green")
+                
+                for prompt_name, version_count in stats_data['prompt_versions'].items():
+                    prompt_table.add_row(prompt_name, str(version_count))
+                
+                console.print(prompt_table)
+            
+            storage.close()
+            return
+        
+        # Run learning cycle
+        console.print("[bold cyan]Running learning cycle...[/bold cyan]")
+        
+        results = engine.run_learning_cycle(force=force, schema_file=schema_file)
+        
+        if results['success']:
+            console.print(f"[green]✓ {results['message']}[/green]")
+            
+            # Show summary
+            summary_table = Table(title="Learning Cycle Results")
+            summary_table.add_column("Step", style="cyan")
+            summary_table.add_column("Count", style="green")
+            
+            summary_table.add_row("Feedback Analyzed", str(results['feedback_analyzed']))
+            summary_table.add_row("Patterns Extracted", str(results['patterns_extracted']))
+            summary_table.add_row("Prompts Refined", str(results['prompts_refined']))
+            summary_table.add_row("Test Cases Saved", str(results['test_cases_saved']))
+            
+            console.print(summary_table)
+        else:
+            console.print(f"[yellow]⚠ {results['message']}[/yellow]")
+        
+        storage.close()
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        console.print(traceback.format_exc())
+        sys.exit(1)
+
+
 # Add main command to group
 cli_group.add_command(main)
 
