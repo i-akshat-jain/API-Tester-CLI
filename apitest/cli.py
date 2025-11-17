@@ -50,13 +50,23 @@ from rich.table import Table
 @click.option('--use-cached-token', is_flag=True, help='Use cached token from system keyring if available')
 @click.option('--use-smart-data', is_flag=True, help='Use learned patterns for intelligent test data generation')
 @click.option('--compare-baseline', is_flag=True, help='Compare test results to baseline and detect regressions')
+@click.option('--mode', type=click.Choice(['schema', 'ai', 'hybrid'], case_sensitive=False), 
+              default='schema', help='Test generation mode: schema (default), ai (AI-powered), or hybrid (both)')
+@click.option('--ai-provider', type=click.Choice(['groq', 'openai', 'anthropic'], case_sensitive=False),
+              help='AI provider for test generation (groq, openai, anthropic)')
+@click.option('--ai-model', type=str, help='AI model to use (e.g., llama-3-groq-70b, gpt-4)')
+@click.option('--ai-temperature', type=float, help='AI temperature (0.0-2.0, default: 0.7)')
+@click.option('--ai-max-tokens', type=int, help='Maximum tokens for AI generation (default: 2000)')
+@click.option('--ai-enabled', is_flag=True, help='Enable AI test generation (overrides --mode if set)')
 @click.version_option(version=__version__)
 def main(schema_file: str, base_url: Optional[str], auth: Optional[str], 
          path_params: Optional[str], profile: Optional[str], config: Optional[str],
          format: str, output: Optional[str], 
          parallel: bool, verbose: bool, timeout: int, list_profiles: bool, init_config: bool,
          demo: bool, dry_run: bool, validate_schema: bool, validate_auth: bool, summary_only: bool,
-         store_results: bool, use_cached_token: bool, use_smart_data: bool, compare_baseline: bool):
+         store_results: bool, use_cached_token: bool, use_smart_data: bool, compare_baseline: bool,
+         mode: str, ai_provider: Optional[str], ai_model: Optional[str], 
+         ai_temperature: Optional[float], ai_max_tokens: Optional[int], ai_enabled: bool):
     """
     API Tester CLI - Automate OpenAPI/Swagger API Testing
     
@@ -181,6 +191,7 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
         profile_auth = None
         profile_path_params = {}
         profile_timeout = None
+        profile_ai_config = None
         
         if profile:
             profile_obj = config_manager.get_profile(profile)
@@ -197,9 +208,80 @@ def main(schema_file: str, base_url: Optional[str], auth: Optional[str],
             profile_auth = profile_obj.auth
             profile_path_params = profile_obj.path_params.copy()
             profile_timeout = profile_obj.timeout
+            profile_ai_config = profile_obj.ai_config
             if verbose:
                 console = Console()
                 console.print(f"[dim]Using profile: [cyan]{profile}[/cyan][/dim]")
+        
+        # Merge AI configuration (CLI > Profile > Default)
+        from apitest.config import AIConfig
+        
+        # Start with default or profile AI config
+        final_ai_config = profile_ai_config or AIConfig()
+        
+        # Override with CLI flags if provided
+        if ai_enabled:
+            # --ai-enabled flag overrides mode to 'ai'
+            mode = 'ai'
+        
+        # Check if any AI-related CLI flags were provided
+        ai_flags_provided = (mode != 'schema' or ai_provider or ai_model or 
+                            ai_temperature is not None or ai_max_tokens is not None or ai_enabled)
+        
+        if ai_flags_provided:
+            # Create new config with CLI overrides
+            final_ai_config = AIConfig(
+                provider=ai_provider or final_ai_config.provider,
+                model=ai_model or final_ai_config.model,
+                api_key=final_ai_config.api_key,  # API key from env or profile
+                mode=mode if mode != 'schema' or ai_enabled else final_ai_config.mode,
+                temperature=ai_temperature if ai_temperature is not None else final_ai_config.temperature,
+                max_tokens=ai_max_tokens if ai_max_tokens is not None else final_ai_config.max_tokens,
+                enabled=ai_enabled or final_ai_config.enabled or (mode in ['ai', 'hybrid'])
+            )
+        
+        # Validate AI config if AI mode is enabled
+        if final_ai_config.mode in ['ai', 'hybrid'] or final_ai_config.enabled:
+            if not final_ai_config.api_key:
+                # Try to get from environment
+                env_var_map = {
+                    'groq': 'GROQ_API_KEY',
+                    'openai': 'OPENAI_API_KEY',
+                    'anthropic': 'ANTHROPIC_API_KEY'
+                }
+                env_var = env_var_map.get(final_ai_config.provider)
+                if env_var:
+                    api_key = os.getenv(env_var)
+                    if api_key:
+                        final_ai_config.api_key = api_key
+                
+                if not final_ai_config.api_key:
+                    console = Console()
+                    console.print(f"\n[bold red]✗ Error: AI mode requires an API key[/bold red]")
+                    console.print(f"[yellow]Please provide an API key using one of the following:[/yellow]")
+                    console.print(f"  1. Set environment variable: [cyan]{env_var or 'GROQ_API_KEY'}[/cyan]")
+                    console.print(f"  2. Add to profile config: [cyan]ai_config.api_key[/cyan]")
+                    console.print(f"  3. Use --ai-provider with API key in environment\n")
+                    sys.exit(1)
+            
+            # Validate temperature range
+            if final_ai_config.temperature < 0.0 or final_ai_config.temperature > 2.0:
+                click.echo(click.style(f"✗ Error: AI temperature must be between 0.0 and 2.0, got {final_ai_config.temperature}", fg="red"), err=True)
+                sys.exit(1)
+            
+            # Validate max_tokens
+            if final_ai_config.max_tokens < 1:
+                click.echo(click.style(f"✗ Error: AI max_tokens must be positive, got {final_ai_config.max_tokens}", fg="red"), err=True)
+                sys.exit(1)
+            
+            if verbose:
+                console = Console()
+                console.print(f"[dim]AI Configuration:[/dim]")
+                console.print(f"[dim]  Mode: {final_ai_config.mode}[/dim]")
+                console.print(f"[dim]  Provider: {final_ai_config.provider}[/dim]")
+                console.print(f"[dim]  Model: {final_ai_config.model}[/dim]")
+                console.print(f"[dim]  Temperature: {final_ai_config.temperature}[/dim]")
+                console.print(f"[dim]  Max Tokens: {final_ai_config.max_tokens}[/dim]")
         
         # Handle --validate-auth flag
         if validate_auth:
