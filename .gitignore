@@ -150,5 +150,4 @@ package_for_gumroad.sh
 venv/
 
 
-tests/
 gumroad-package/

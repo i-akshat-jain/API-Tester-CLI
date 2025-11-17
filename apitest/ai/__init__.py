@@ -7,9 +7,13 @@ various AI providers (Groq, OpenAI, Anthropic).
 
 from apitest.ai.groq_client import GroqClient, GroqAPIError, GroqRateLimitError, GroqAuthenticationError, GroqResponse
 from apitest.ai.context_builder import ContextBuilder
+from apitest.ai.prompt_builder import PromptBuilder, initialize_default_prompts
+from apitest.ai.response_parser import ResponseParser
 
 __all__ = [
     'GroqClient', 'GroqAPIError', 'GroqRateLimitError', 'GroqAuthenticationError', 'GroqResponse',
-    'ContextBuilder'
+    'ContextBuilder',
+    'PromptBuilder', 'initialize_default_prompts',
+    'ResponseParser'
 ]
 
